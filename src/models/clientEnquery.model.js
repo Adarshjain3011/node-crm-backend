@@ -2,26 +2,6 @@ import mongoose from "mongoose";
 
 import { enquery_status } from "../utils/data.js";
 
-// Sub-schema for individual vendor product assignments
-// const productAssignmentSchema = new mongoose.Schema({
-//   productName: { type: String, required: true },
-//   quantity: { type: Number, default: 1 },
-//   estimatedCost: { type: Number },
-//   advancePaid: { type: Number },
-// }, { _id: false });
-
-// Sub-schema for each vendor assigned to a client inquiry
-// const vendorAssignmentSchema = new mongoose.Schema({
-//   vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor', required: true },
-//   deliveryEstimate: { type: Date },
-//   deliveryStatus: {
-//     type: String,
-//     enum: ['Pending', 'In Progress', 'Completed', 'Overdue'],
-//     default: 'Pending'
-//   },
-//   products: [productAssignmentSchema],
-// }, { _id: false });
-
 // Main client schema
 const clientSchema = new mongoose.Schema({
   name: { type: String, required: true },

@@ -6,11 +6,17 @@ import responseHandler from "../utils/responseHandler.js";
 
 import express from "express";
 
+import { user_role } from "../utils/data.js";
+
+import { authMiddleware } from "../middlewares/authMiddleware.js";
+
+import { authorizeRoles } from "../middlewares/role.middleware.js";
+
 const router = express.Router();
 
 // Route to create a new invoice
 
-router.post("/create-new-invoice", createNewInvoice);
+router.post("/create-new-invoice",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),createNewInvoice);
 
 // Route to get all invoices
 

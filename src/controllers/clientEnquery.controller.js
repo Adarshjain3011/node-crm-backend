@@ -6,6 +6,7 @@ import Client from "../models/clientEnquery.model.js";
 import User from "../models/user.model.js";
 import { user_role } from "../utils/data.js";
 
+import { checkUserExists } from "../utils/helper.js";
 
 
 const createNewQuery = async (req, res) => {
@@ -48,13 +49,33 @@ const createNewQuery = async (req, res) => {
 
 
 
-
 // get all enquery 
 
 const getAllEnquery = async (req, res) => {
 
 
     try {
+
+        const { id } = req.user;
+
+        if (!id) {
+
+            return responseHandler(res, 400, false, "user is not authorised ", null);
+        }
+
+        let isuserExists;
+
+        try {
+
+            isuserExists = await checkUserExists(id);
+
+        } catch (error) {
+
+            console.log("error is : ", error);
+
+            return responseHandler(res, 400, false, "Something went wrong", null, error);
+
+        }
 
         const allEnquery = await Client.find()
             .populate("assignedTo", "name")
@@ -74,25 +95,6 @@ const getAllEnquery = async (req, res) => {
         return responseHandler(res, 500, false, "Something went wrong", null, error);
     }
 }
-
-
-// assingn sales person to the Enquery 
-
-const assignSalesPersonToEnquery = async (req, res) => {
-
-    try {
-
-        console.log("hellow plz wait ");
-
-    } catch (error) {
-
-        console.log("error is ", error);
-
-        return responseHandler(res, 500, false, "Something went wrong", null, error);
-    }
-
-}
-
 
 
 const assignVendorToEnquiry = async (req, res) => {
@@ -500,7 +502,7 @@ const getSpecificEnqueryData = async (req, res) => {
 
         if (!specificEnquery) {
 
-            return responseHandler(res,404,false,"enquery not found",null,null);
+            return responseHandler(res, 404, false, "enquery not found", null, null);
 
         }
 
@@ -519,7 +521,7 @@ const getSpecificEnqueryData = async (req, res) => {
 
 const fetchAllEnqueryAssignedToSpecificSalesPerson = async (req, res) => {
 
-    try{
+    try {
 
 
         const { salesPersonId } = req.params;
@@ -530,7 +532,7 @@ const fetchAllEnqueryAssignedToSpecificSalesPerson = async (req, res) => {
 
         }
 
-        const specificEnquery = await Client.find({ assignedTo:salesPersonId })
+        const specificEnquery = await Client.find({ assignedTo: salesPersonId })
             .populate("assignedTo", "name")
             .populate("assignedBy", "name")
             .populate("followUps.noteAddByUser", "name") // ✅ Populating the user who added the note
@@ -538,7 +540,7 @@ const fetchAllEnqueryAssignedToSpecificSalesPerson = async (req, res) => {
 
 
 
-    }catch(error){
+    } catch (error) {
 
         console.log("error is ", error);
 
@@ -562,3 +564,4 @@ export {
 
 
 }
+

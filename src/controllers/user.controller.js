@@ -1,221 +1,170 @@
-
-
 import User from "../models/user.model.js";
-
-import responseHandler from "../utils/responseHandler.js";
-
-import { user_role, enquery_status } from "../utils/data.js";
 import Client from "../models/clientEnquery.model.js";
 
 import bcrypt from "bcryptjs";
+import responseHandler from "../utils/responseHandler.js";
+import { user_role, enquery_status } from "../utils/data.js";
 
+// Utility to check if a user exists
+async function checkUserExists(userId) {
+  try {
+    return await User.findById(userId);
+  } catch (error) {
+    console.error("Error checking user existence:", error);
+    throw new Error("User does not exist with given ID");
+  }
+}
 
-// create new User 
-
+// Create a new user
 const createUser = async (req, res) => {
+  try {
+    const { id } = req.user;
 
-    try {
-
-        const { name, email, password, role, isActive,phoneNo } = req.body;
-
-        if (!name || !email || !password || !role) {
-
-            return responseHandler(res, 400, false, "Please fill all the fields");
-
-        }
-
-        // check user is already exists or not by checking email 
-
-        const userExists = await User.findOne({ email });
-
-        if (userExists) {
-
-            return responseHandler(res, 400, false, "User already exists");
-
-        }
-
-        let hashedPassword = bcrypt.hashSync(password, 6);
-
-        const newUser = await User.create({ name, email, password: hashedPassword, role,phoneNo:phoneNo });
-
-        return responseHandler(res, 201, true, "User created successfully", newUser);
-
-
-    } catch (error) {
-
-        console.log("error is ", error);
-
-        return responseHandler(res, 500, false, "Something went wrong", null, error);
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
     }
-}
 
-// get All Sales person 
-
-
-const getAllSalesPerson = async (req, res) => {
-
-    try {
-
-        const salesPerson = await User.find({ role: user_role.sales });
-        return responseHandler(res, 200, true, "Sales person fetched successfully", salesPerson);
-
-
-    } catch (error) {
-
-        console.log("error is ", error);
-
-        return responseHandler(res, 500, false, "Something went wrong", null, error);
-
+    const existingUser = await checkUserExists(id);
+    if (!existingUser) {
+      return responseHandler(res, 400, false, "User not found", null);
     }
-}
 
+    const { name, email, password, role, isActive, phoneNo } = req.body;
+    if (!name || !email || !password || !role) {
+      return responseHandler(res, 400, false, "Please fill all required fields");
+    }
 
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return responseHandler(res, 400, false, "User already exists");
+    }
 
-// get all members data 
+    const hashedPassword = bcrypt.hashSync(password, 6);
 
+    const newUser = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role,
+      phoneNo,
+      isActive
+    });
+
+    return responseHandler(res, 201, true, "User created successfully", newUser);
+
+  } catch (error) {
+    console.error("Error creating user:", error);
+    return responseHandler(res, 500, false, "Internal server error", null, error);
+  }
+};
+
+// Get all non-admin users
 const getAllMembersData = async (req, res) => {
+  try {
+    const { id } = req.user;
 
-    try {
-
-
-        const nonAdmins = await User.find({ role: { $ne: user_role.admin } });
-
-        return responseHandler(res, 200, true, "Sales person fetched successfully", nonAdmins);
-
-
-    } catch (error) {
-
-        console.log("error is ", error);
-
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
     }
-}
 
+    const userExists = await checkUserExists(id);
+    if (!userExists) {
+      return responseHandler(res, 400, false, "User not found", null);
+    }
 
+    const members = await User.find({ role: { $ne: user_role.admin } }, "-password");
+    return responseHandler(res, 200, true, "Members fetched successfully", members);
 
+  } catch (error) {
+    console.error("Error fetching members:", error);
+    return responseHandler(res, 500, false, "Something went wrong", null, error);
+  }
+};
 
-// assign a person to the query 
-
+// Assign a salesperson to a client inquiry
 const assignPersonToEnquery = async (req, res) => {
+  try {
+    const { id, enqueryId, salesPersonId } = req.body;
 
-    try {
-
-
-        const adminId = "681f4ca937491ad52145d7da";
-
-        const { enqueryId, salesPersonId } = req.body;
-
-        if (!enqueryId || !salesPersonId) {
-
-            return responseHandler(res, 400, false, "Please fill all the fields");
-
-        }
-
-        // check that enquery is exists or not 
-
-        const isEnqueryExists = await Client.findById(enqueryId);
-
-        if (!isEnqueryExists) {
-
-            return responseHandler(res, 400, false, "Enquery does not exists");
-
-        }
-
-        // check that sales person is exists or not 
-
-        const isSalesPersonExists = await User.findById(salesPersonId);
-
-        if (!isSalesPersonExists) {
-
-            return responseHandler(res, 400, false, "Sales person does not exists");
-
-        }
-
-        // assign the sales person to the enquery 
-
-        const updatedQueryData = await Client.findByIdAndUpdate(enqueryId, {
-
-            assignedTo: salesPersonId,
-            assignedBy: adminId,
-            status: enquery_status.Assigned,
-
-        })
-
-        return responseHandler(res, 200, true, "Sales person assigned successfully", updatedQueryData);
-
-    } catch (error) {
-
-        console.log("error is ", error);
-
-        return responseHandler(res, 500, false, "Something went wrong", null, error);
-
+    if (!id || !enqueryId || !salesPersonId) {
+      return responseHandler(res, 400, false, "Please fill all required fields");
     }
-}
 
+    const userExists = await checkUserExists(id);
+    if (!userExists) {
+      return responseHandler(res, 400, false, "User not found", null);
+    }
 
-// update the members data --> route -> update-members-data
+    const enquery = await Client.findById(enqueryId);
+    if (!enquery) {
+      return responseHandler(res, 400, false, "Enquiry does not exist", null);
+    }
 
+    const salesPerson = await User.findById(salesPersonId);
+    if (!salesPerson) {
+      return responseHandler(res, 400, false, "Salesperson does not exist", null);
+    }
+
+    const updatedEnquery = await Client.findByIdAndUpdate(
+      enqueryId,
+      {
+        assignedTo: salesPersonId,
+        assignedBy: userExists._id,
+        status: enquery_status.Assigned,
+      },
+      { new: true }
+    );
+
+    return responseHandler(res, 200, true, "Salesperson assigned successfully", updatedEnquery);
+
+  } catch (error) {
+    console.error("Error assigning salesperson:", error);
+    return responseHandler(res, 500, false, "Something went wrong", null, error);
+  }
+};
+
+// Update a member's data
 const updateMembersData = async (req, res) => {
+  try {
+    const { name, email, phoneNo, password, role, userId } = req.body;
 
-    try{
-
-        const {name,email,phoneNo,passowrd,role,userId} = req.body;
-
-
-        console.log("name : ",name,"email : ",email,"passowrd : ",passowrd,"role : ",role,"userId : ",userId);
-
-        let dataToUpdate = {};
-
-        if(name){
-            
-            dataToUpdate.name = name;
-            
-        }
-
-        if(email){
-            
-            dataToUpdate.email = email;
-            
-        }
-
-        if(role){
-            
-            dataToUpdate.role = role;
-            
-        }
-
-        if(passowrd){
-            
-            let hashedPassword = bcrypt.hashSync(password, 6);
-            dataToUpdate.password = hashedPassword;
-            
-        }
-
-        if(phoneNo){
-
-            dataToUpdate.phoneNo = phoneNo;
-            
-        }
-
-        const updatedData = await User.findByIdAndUpdate(userId,dataToUpdate);
-
-        return responseHandler(res,200,true,"data updated successfully",updatedData);
-
-    }catch(error){
-
-        console.log("error is : ",error);
-
-        return responseHandler(res,500,false,"error occur while updating the data",null);
+    if (!userId) {
+      return responseHandler(res, 400, false, "User ID is required");
     }
-}
 
+    const dataToUpdate = {};
+    if (name) dataToUpdate.name = name;
+    if (email) dataToUpdate.email = email;
+    if (role) dataToUpdate.role = role;
+    if (phoneNo) dataToUpdate.phoneNo = phoneNo;
+    if (password) dataToUpdate.password = bcrypt.hashSync(password, 6);
+
+    const updatedUser = await User.findByIdAndUpdate(userId, dataToUpdate, { new: true });
+
+    return responseHandler(res, 200, true, "User data updated successfully", updatedUser);
+
+  } catch (error) {
+    console.error("Error updating member data:", error);
+    return responseHandler(res, 500, false, "Failed to update user data", null, error);
+  }
+};
+
+// Uncomment if needed later
+// const getAllSalesPerson = async (req, res) => {
+//   try {
+//     const salesPeople = await User.find({ role: user_role.sales }, "-password");
+//     return responseHandler(res, 200, true, "Salespeople fetched successfully", salesPeople);
+//   } catch (error) {
+//     console.error("Error fetching salespeople:", error);
+//     return responseHandler(res, 500, false, "Something went wrong", null, error);
+//   }
+// };
 
 export {
-
-    createUser,
-    getAllSalesPerson,
-    assignPersonToEnquery,
-    getAllMembersData,
-    updateMembersData
-
-}
+  createUser,
+  // getAllSalesPerson,
+  assignPersonToEnquery,
+  getAllMembersData,
+  updateMembersData,
+};
 

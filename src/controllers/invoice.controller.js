@@ -6,267 +6,243 @@ import path from 'path';
 import { convertExcelToPdf } from '../utils/convertExcelToPdf.js';
 import uploadImage from '../utils/upload.js';
 import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // Define __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
-const formatDate = (date) => new Date(date).toLocaleDateString('en-IN');
+const formatDate = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  return d.toLocaleDateString('en-IN');
+};
+
+// Function to ensure directory exists
+const ensureDirectoryExists = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+};
+
+// Function to safely delete file
+const safeDeleteFile = (filePath) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch (error) {
+    console.error("Error deleting file:", error);
+  }
+};
+
+// Function to wait for file to exist
+const waitForFile = async (filePath, maxAttempts = 5, delayMs = 1000) => {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (fs.existsSync(filePath)) {
+      // Also check if file is accessible and not empty
+      try {
+        const stats = fs.statSync(filePath);
+        if (stats.size > 0) {
+          return true;
+        }
+      } catch (error) {
+        console.log(`File exists but not accessible on attempt ${attempt + 1}`);
+      }
+    }
+    console.log(`Waiting for file to be ready, attempt ${attempt + 1}`);
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+  return false;
+};
 
 // Function to fill the Excel template
-
 const fillExcelTemplate = async (invoiceData, outputPath) => {
   try {
     const workbook = new ExcelJS.Workbook();
     const templatePath = path.resolve(__dirname, '../utils/InvoiceTemplate/New Invoice Format.xlsx');
 
+    if (!fs.existsSync(templatePath)) {
+      throw new Error('Invoice template not found');
+    }
+
     // Load the Excel template
     await workbook.xlsx.readFile(templatePath);
 
-    const sheet = workbook.getWorksheet('Sheet 2'); // Ensure the correct sheet name
+    const sheet = workbook.getWorksheet('Sheet 2');
     if (!sheet) {
       throw new Error('Worksheet "Sheet 2" not found in the Excel template');
     }
 
     // Map values to Excel cells
-    sheet.getCell('G8').value = invoiceData.invoiceNumber; // Invoice No.
-    sheet.getCell('N8').value = formatDate(invoiceData.invoiceDate); // Date
-    sheet.getCell('G10').value = formatDate(invoiceData.buyerWorkOrderDate); // Work Order Date
-    sheet.getCell('Z8').value = invoiceData.transporterName; // Transporter Name
-    sheet.getCell('Z9').value = invoiceData.transporterId; // Transporter ID
-    sheet.getCell('Z10').value = invoiceData.vehicleNo; // Vehicle Number
-    sheet.getCell('Z11').value = invoiceData.ewayBillNumber; // e-Way Bill Number
+    sheet.getCell('G8').value = invoiceData.invoiceNumber;
+    sheet.getCell('N8').value = formatDate(invoiceData.invoiceDate);
+    sheet.getCell('G10').value = formatDate(invoiceData.buyerWorkOrderDate);
+    sheet.getCell('Z8').value = invoiceData.transporterName;
+    sheet.getCell('Z9').value = invoiceData.transporterId;
+    sheet.getCell('Z10').value = invoiceData.vehicleNo;
+    sheet.getCell('Z11').value = invoiceData.ewayBillNumber;
 
-    sheet.getCell('A12').value = invoiceData.buyerName; // Buyer Name
-    sheet.getCell('A13').value = invoiceData.buyerAddress; // Buyer Address
+    sheet.getCell('A12').value = invoiceData.buyerName;
+    sheet.getCell('A13').value = invoiceData.buyerAddress;
 
-    sheet.getCell('H16').value = invoiceData.buyerGSTIN; // GSTIN
-    sheet.getCell('K17').value = invoiceData.panNo; // PAN
-    sheet.getCell('K18').value = invoiceData.stateCode; // State Code
+    sheet.getCell('H16').value = invoiceData.buyerGSTIN;
+    sheet.getCell('K17').value = invoiceData.panNo;
+    sheet.getCell('K18').value = invoiceData.stateCode;
 
-    sheet.getCell('S13').value = invoiceData.shippingAddress; // State Name
-
+    sheet.getCell('S13').value = invoiceData.shippingAddress;
 
     // Fill items table
-    let startRow = 20; // Starting row for items
-    const preExistingRows = 3; // Number of pre-existing rows in the template
-
-    // Get the template row for formatting
-    const templateRow = sheet.getRow(startRow);
-
-    // Define the column groups that need to be merged
-    const columnGroups = [
-      { start: 'D', end: 'R', field: 'description' },    // Description of Goods
-      { start: 'S', end: 'V', field: 'hsn' },           // HSN/SAC Code
-      { start: 'W', end: 'X', field: 'unit' },          // Unit
-      { start: 'Y', end: 'AB', field: 'price' },        // Unit Price
-      { start: 'AC', end: 'AE', field: 'qty' },         // Qty
-      { start: 'AF', end: 'AL', field: 'total' }        // Total Value
-    ];
-
-    // Helper function to get column number from letter
-    const getColumnNumber = (col) => {
-      let value = 0;
-      for (let i = 0; i < col.length; i++) {
-        value = value * 26 + col.charCodeAt(i) - 64;
-      }
-      return value;
-    };
-
+    let startRow = 20;
     invoiceData.items.forEach((item, index) => {
-      const currentRow = startRow + index;
-
-      if (index >= preExistingRows) {
-        // Copy the entire template row structure
-        const newRowData = [];
-        templateRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-          newRowData[colNumber - 1] = '';  // Initialize with empty values
-        });
-        
-        // Insert new row with template's structure
-        const newRow = sheet.insertRow(currentRow, newRowData);
-        
-        // Copy row properties and formatting
-        newRow.height = templateRow.height;
-        
-        // Copy cell properties from template
-        templateRow.eachCell({ includeEmpty: true }, (templateCell, colNumber) => {
-          const newCell = newRow.getCell(colNumber);
-          
-          // Copy styles and formatting
-          if (templateCell.style) newCell.style = templateCell.style;
-          if (templateCell.border) newCell.border = templateCell.border;
-          if (templateCell.fill) newCell.fill = templateCell.fill;
-          if (templateCell.font) newCell.font = templateCell.font;
-          if (templateCell.alignment) newCell.alignment = templateCell.alignment;
-        });
-
-        // Apply column merges for each group
-        columnGroups.forEach(group => {
-          const startCol = getColumnNumber(group.start);
-          const endCol = getColumnNumber(group.end);
-          try {
-            sheet.mergeCells(currentRow, startCol, currentRow, endCol);
-            
-            // Set alignment for merged cell
-            const mergedCell = newRow.getCell(group.start);
-            mergedCell.alignment = {
-              vertical: 'middle',
-              horizontal: group.field === 'description' ? 'left' : 'center'
-            };
-          } catch (error) {
-            console.warn(`Warning: Could not merge cells ${group.start}-${group.end} in row ${currentRow}`);
-          }
-        });
-      }
-
-      const row = sheet.getRow(currentRow);
-
-      // Fill data
-      row.getCell('A').value = index + 1;
-      row.getCell('D').value = item.description;
-      row.getCell('S').value = item.hsn;
-      row.getCell('W').value = item.unit;
-      row.getCell('Y').value = item.rate;
-      row.getCell('AC').value = item.quantity;
-      row.getCell('AF').value = item.total;
-
-      // Set specific alignments
-      row.getCell('A').alignment = { vertical: 'middle', horizontal: 'center' };
-
-      row.commit();
+      const row = sheet.getRow(startRow + index);
+      row.getCell(1).value = index + 1;
+      row.getCell(2).value = item.description;
+      row.getCell(3).value = item.hsn;
+      row.getCell(4).value = item.unit;
+      row.getCell(5).value = item.quantity;
+      row.getCell(6).value = item.rate;
+      row.getCell(7).value = item.amount;
     });
 
-    // Calculate the row for totals and charges
-    const totalsRow = startRow + invoiceData.items.length + 1;
-
-    // Fill totals and charges
-    sheet.getCell(`S${totalsRow}`).value = invoiceData.transportCharges; // Transportation Charges
-    // sheet.getCell(`S${totalsRow + 1}`).value = invoiceData.taxableAmount; // Taxable Amount
-    // sheet.getCell(`S${totalsRow + 2}`).value = invoiceData.sgstAmount;    // SGST
-    // sheet.getCell(`S${totalsRow + 3}`).value = invoiceData.cgstAmount;    // CGST
-    // sheet.getCell(`S${totalsRow + 4}`).value = invoiceData.igstAmount;    // IGST
-    // sheet.getCell(`S${totalsRow + 5}`).value = invoiceData.totalAmount;   // Total Amount
-
-    // Save the filled Excel file
+    // Save the workbook
     await workbook.xlsx.writeFile(outputPath);
-    console.log('Excel file saved at:', outputPath);
+    return true;
   } catch (error) {
-    console.error('Error filling Excel template:', error);
+    console.error("Error filling Excel template:", error);
     throw error;
   }
 };
 
-
 // Controller to create a new invoice
 const createNewInvoice = async (req, res) => {
+  const tmpDir = path.resolve(__dirname, '../tmp');
+  let excelPath = null;
+  let pdfPath = null;
+
   try {
+    // Ensure tmp directory exists
+    ensureDirectoryExists(tmpDir);
+
     const {
-      buyerName,
-      buyerAddress,
-      buyerGSTIN,
-      invoiceNumber,
-      panNo,
-      stateCode,
-      stateName,
-      vehicleNo,
-      transporterName,
-      transporterId,
-      ewayBillNumber,
-      shippingAddress,
-      buyerWorkOrderDate,
-      items,
-      transportCharges,
-      installationCharges,
-      taxableAmount,
-      cgstAmount,
-      sgstAmount,
-      igstAmount,
-      gstAmount,
-      totalAmount,
-      paymentTerms,
-      notes,
+      buyerName, buyerAddress, buyerGSTIN, invoiceNumber, panNo,
+      stateCode, stateName, vehicleNo, transporterName, transporterId,
+      ewayBillNumber, shippingAddress, buyerWorkOrderDate, items,
+      transportCharges, installationCharges, taxableAmount,
+      cgstAmount, sgstAmount, igstAmount, gstAmount, totalAmount,
+      paymentTerms, notes,
     } = req.body;
 
-    console.log("Creating new invoice with data:", shippingAddress);
-
     // Validate required fields
-    if (
-      !buyerName || !buyerAddress || !buyerGSTIN || !panNo || !stateCode ||
-      !stateName || !shippingAddress || !vehicleNo || !transporterName || !items || items.length === 0
-    ) {
+    if (!buyerName || !buyerAddress || !buyerGSTIN || !invoiceNumber || !items || items.length === 0) {
       return responseHandler(res, 400, false, 'Missing required fields', null);
     }
 
-    // Create a new invoice document
+    // Create invoice document
     const newInvoice = new Invoice({
-      buyerName,
-      buyerAddress,
-      buyerGSTIN,
-      panNo,
-      stateCode,
-      stateName,
-      invoiceNumber,
-      vehicleNo,
-      transporterName,
-      transporterId,
-      ewayBillNumber,
-      buyerWorkOrderDate,
-      shippingAddress: shippingAddress || '',
-      items,
+      buyerName, buyerAddress, buyerGSTIN, invoiceNumber, panNo,
+      stateCode, stateName, vehicleNo, transporterName, transporterId,
+      ewayBillNumber, shippingAddress, buyerWorkOrderDate, items,
       transportCharges: transportCharges || 0,
       installationCharges: installationCharges || 0,
-      taxableAmount,
-      cgstAmount: cgstAmount || 0,
-      sgstAmount: sgstAmount || 0,
-      igstAmount: igstAmount || 0,
-      gstAmount,
-      totalAmount,
+      taxableAmount, cgstAmount: cgstAmount || 0,
+      sgstAmount: sgstAmount || 0, igstAmount: igstAmount || 0,
+      gstAmount, totalAmount,
       paymentTerms: paymentTerms || '',
       notes: notes || '',
     });
 
     await newInvoice.save();
 
-    // Fill the Excel template
-    const tmpDir = path.resolve(__dirname, '../tmp');
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir, { recursive: true });
-    }
-    const excelPath = path.join(tmpDir, `invoice-${newInvoice._id}.xlsx`);
+    // Generate file paths with absolute paths
+    excelPath = path.resolve(tmpDir, `invoice-${newInvoice._id}.xlsx`);
+    pdfPath = path.resolve(tmpDir, `invoice-${newInvoice._id}.pdf`);
+
+    // Fill Excel template
     await fillExcelTemplate(newInvoice, excelPath);
+    console.log("Excel file created at:", excelPath);
 
-    // Convert the Excel file to PDF
-    const pdfPath = path.join(tmpDir, `invoice-${newInvoice._id}.pdf`);
-    await convertExcelToPdf(excelPath, pdfPath);
+    // Wait for Excel file to be ready
+    const excelReady = await waitForFile(excelPath);
+    if (!excelReady) {
+      throw new Error('Excel file creation failed or file is not accessible');
+    }
 
-    // Upload the PDF to Cloudinary
-    let uploaded;
+    // Convert to PDF using the imported function
     try {
-      uploaded = await uploadImage(pdfPath);
+      await convertExcelToPdf(excelPath, pdfPath);
+      console.log("PDF created at:", pdfPath);
 
-      console.log("Uploaded PDF URL:", uploaded.secure_url);
+      // Wait for PDF file to be ready
+      const pdfReady = await waitForFile(pdfPath);
+      if (!pdfReady) {
+        console.warn("PDF file not ready, falling back to Excel file");
+        pdfPath = excelPath;
+      }
+    } catch (pdfError) {
+      console.error("Error converting to PDF:", pdfError);
+      pdfPath = excelPath;
+    }
 
+    // Upload to Cloudinary
+    let uploadedUrl = null;
+    try {
+      const fileToUpload = pdfPath === excelPath ? excelPath : pdfPath;
+      
+      // Final check before upload
+      if (!fs.existsSync(fileToUpload)) {
+        throw new Error(`File not found at path: ${fileToUpload}`);
+      }
 
+      // Verify file is not empty
+      const stats = fs.statSync(fileToUpload);
+      if (stats.size === 0) {
+        throw new Error(`File is empty: ${fileToUpload}`);
+      }
+
+      console.log(`Attempting to upload file: ${fileToUpload} (${stats.size} bytes)`);
+      const uploaded = await uploadImage(fileToUpload);
+      
+      if (!uploaded || !uploaded.secure_url) {
+        throw new Error('Upload succeeded but no URL returned');
+      }
+
+      uploadedUrl = uploaded.secure_url;
+      
+      // Update invoice with file URL
+      newInvoice.invoiceLink = uploadedUrl;
+      await newInvoice.save();
+
+      console.log('File uploaded successfully:', uploadedUrl);
     } catch (uploadError) {
       console.error('Cloudinary Upload Error:', uploadError);
-      return responseHandler(res, 500, false, 'Failed to upload PDF to Cloudinary', null);
+      return responseHandler(res, 201, true, 'Invoice created but file upload failed', {
+        invoice: newInvoice,
+        error: uploadError.message,
+        fileDetails: {
+          path: pdfPath === excelPath ? 'Excel' : 'PDF',
+          exists: fs.existsSync(pdfPath),
+          size: fs.existsSync(pdfPath) ? fs.statSync(pdfPath).size : 'N/A'
+        }
+      });
     }
 
-    if (!uploaded || !uploaded.secure_url) {
-      return responseHandler(res, 500, false, 'Failed to retrieve uploaded PDF URL', null);
-    }
-
-    return responseHandler(res, 201, true, 'Invoice created and uploaded', {
+    return responseHandler(res, 201, true, 'Invoice created successfully', {
       invoice: newInvoice,
-      pdfUrl: uploaded.secure_url,
+      pdfUrl: uploadedUrl
     });
+
   } catch (error) {
-    console.error('Error creating new invoice:', error);
-    return responseHandler(res, 500, false, 'Internal Server Error', null);
+    console.error('Error in invoice creation:', error);
+    return responseHandler(res, 500, false, 'Error creating invoice', null, error.message);
+  } finally {
+    // Cleanup temporary files with delay to ensure upload is complete
+    setTimeout(() => {
+      if (excelPath) safeDeleteFile(excelPath);
+      if (pdfPath && pdfPath !== excelPath) safeDeleteFile(pdfPath);
+    }, 2000);
   }
 };
-
 
 export { createNewInvoice };
 

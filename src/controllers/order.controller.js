@@ -5,7 +5,10 @@ import Order from "../models/order.model.js";
 import { quote_status, vendor_delivery_status } from "../utils/data.js";
 
 const createNewOrder = async ({ quoteId, clientId }) => {
+
+    
     try {
+
         // Validate input
         if (!quoteId || !clientId) {
             throw new Error("Quote ID and Client ID are required");
@@ -16,7 +19,7 @@ const createNewOrder = async ({ quoteId, clientId }) => {
 
         const existingOrder = await Order.deleteMany({ finalQuotationId: quoteId });
 
-        console.log("eleted Existing Order is : ", existingOrder);
+        console.log("deleted Existing Order is : ", existingOrder);
 
         // if (existingOrder) {
         //     throw new Error("Order already exists for this quote");
@@ -82,6 +85,8 @@ const createNewOrder = async ({ quoteId, clientId }) => {
         throw error;
     }
 };
+
+
 
 // Get order details
 const getOrderDetails = async (req, res) => {

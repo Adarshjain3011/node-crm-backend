@@ -9,6 +9,8 @@ import { user_role } from "../utils/data.js";
 import { checkUserExists } from "../utils/helper.js";
 
 
+// create new enquery 
+
 const createNewQuery = async (req, res) => {
 
     try {
@@ -49,10 +51,21 @@ const createNewQuery = async (req, res) => {
 
 
 
+
 // get all enquery 
 
 const getAllEnquery = async (req, res) => {
 
+    const { id } = req.user;
+
+    if (!id) {
+        return responseHandler(res, 401, false, "User is not authorized", null);
+    }
+
+    const existingUser = await checkUserExists(id);
+    if (!existingUser) {
+        return responseHandler(res, 400, false, "User not found", null);
+    }
 
     try {
 
@@ -78,14 +91,18 @@ const getAllEnquery = async (req, res) => {
         }
 
         const allEnquery = await Client.find()
-            .populate("assignedTo", "name")
-            .populate("assignedBy", "name")
-            .populate("followUps.noteAddByUser", "name") // ✅ Populating the user who added the note
-            .populate({
-                path: "followUps.responses.respondedBy",
-                select: "name",
-            })
-            .sort({ createdAt: -1 });
+        .populate("assignedTo", "name")
+        .populate("assignedBy", "name")
+        .populate("followUps.noteAddByUser", "name")
+        .populate({
+          path: "followUps.responses",
+          populate: {
+            path: "respondedBy",
+            select: "name"
+          }
+        })
+        .sort({ createdAt: -1 });
+      
         return responseHandler(res, 200, true, "Enquery fetched successfully", allEnquery);
 
     } catch (error) {
@@ -97,9 +114,26 @@ const getAllEnquery = async (req, res) => {
 }
 
 
+
+
+
+// assign vendor to the enquery 
+
 const assignVendorToEnquiry = async (req, res) => {
 
     try {
+
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
         const { enqueryId, vendorId, deliveryEstimate, deliveryStatus, productDescription, estimatedCost, advancePaid, quantity } = req.body;
 
         if (!enqueryId || !vendorId) {
@@ -154,6 +188,17 @@ const assignVendorToEnquiry = async (req, res) => {
 const deleteVendorAssignment = async (req, res) => {
 
     try {
+
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
 
         const { enqueryId, vendorId } = req.body;
 
@@ -333,11 +378,22 @@ const addNewFollowups = async (req, res) => {
 
     try {
 
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
         // although we can get this by 
 
-        const { enqueryId, followUpDate, followUpNote, noteAddByUser } = req.body;
+        const { enqueryId, followUpDate, followUpNote } = req.body;
 
-        console.log("all required fileds are ", enqueryId, followUpDate, followUpNote, noteAddByUser)
+        console.log("all required fileds are ", enqueryId, followUpDate, followUpNote)
 
         if (!enqueryId || !followUpDate || !followUpNote) {
 
@@ -349,7 +405,13 @@ const addNewFollowups = async (req, res) => {
 
         if (!enquiry) return responseHandler(res, 400, false, "enquery id is required");
 
-        enquiry.followUps.push({ followUpDate, followUpNote });
+        enquiry.followUps.push({
+
+            followUpDate,
+            followUpNote,
+            noteAddByUser: existingUser._id,
+
+        });
 
         await enquiry.save();
         return responseHandler(res, 200, true, "Follow up added successfully", enquiry);
@@ -372,17 +434,29 @@ const addNewFollowups = async (req, res) => {
 const respondToFollowUps = async (req, res) => {
 
     try {
-        const { message, respondedBy, enqueryId, followUpId } = req.body;
 
-        console.log("all required fileds are ", message, respondedBy, enqueryId, followUpId)
+        const { id } = req.user;
 
-        if (!message || !respondedBy || !enqueryId || !followUpId) {
-            return responseHandler(res, 400, false, "All fields are required", null);
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
         }
 
-        const user = await User.findById(respondedBy);
-        if (!user) {
-            return responseHandler(res, 400, false, "User does not exist", null);
+        const existingUser = await checkUserExists(id);
+
+        if (!existingUser) {
+
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
+
+        const { message, enqueryId, followUpId } = req.body;
+
+        // console.log("all required fileds are ", message, respondedBy, enqueryId, followUpId)
+
+        if (!message || !enqueryId || !followUpId) {
+
+            return responseHandler(res, 400, false, "All fields are required", null);
+
         }
 
         const client = await Client.findById(enqueryId);
@@ -391,6 +465,7 @@ const respondToFollowUps = async (req, res) => {
         }
 
         // Find the followUp by followUpId
+        
         const followUp = client.followUps.id(followUpId);
         if (!followUp) {
             return responseHandler(res, 400, false, "Follow-up not found", null);
@@ -398,8 +473,10 @@ const respondToFollowUps = async (req, res) => {
 
         // Push the response
         followUp.responses.push({
+
             message,
-            respondedBy
+            respondedBy: existingUser._id,
+
         });
 
         await client.save();
@@ -417,7 +494,9 @@ const respondToFollowUps = async (req, res) => {
         let filteredFollowUps = populatedFollowUpData.followUps.id(followUpId);
 
         if (!filteredFollowUps) {
+
             return responseHandler(res, 400, false, "Follow-up not found", null);
+
         }
 
         console.log("filtered followups response ", filteredFollowUps.responses[filteredFollowUps.responses.length - 1]);
@@ -430,6 +509,53 @@ const respondToFollowUps = async (req, res) => {
         return responseHandler(res, 500, false, "Internal Server Error");
     }
 };
+
+
+
+//update follow up status 
+
+
+const updateFollowUpStatus = async (req, res) => {
+    try {
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 404, false, "User not found", null);
+        }
+
+        const { enqueryId, followUpId, status } = req.body;
+
+        if (!enqueryId || !followUpId || typeof status === "undefined") {
+            return responseHandler(res, 400, false, "enqueryId, followUpId, and status are required", null);
+        }
+
+        const enquiry = await Client.findById(enqueryId);
+        if (!enquiry) {
+            return responseHandler(res, 404, false, "Enquiry not found", null);
+        }
+
+        const followUp = enquiry.followUps.id(followUpId);
+        if (!followUp) {
+            return responseHandler(res, 404, false, "Follow-up not found", null);
+        }
+
+        followUp.done = status;
+
+        await enquiry.save();
+
+        return responseHandler(res, 200, true, "Follow-up status updated successfully", enquiry);
+
+    } catch (error) {
+        console.error("Error updating follow-up status:", error);
+        return responseHandler(res, 500, false, "An error occurred while updating follow-up status", null, error);
+    }
+};
+
 
 
 
@@ -450,38 +576,56 @@ const deleteSpecificFollowUp = async (req, res) => {
 }
 
 
+
+
 // get all vendors  
 
-const getAllSalesPersonData = async (req, res) => {
+// const getAllSalesPersonData = async (req, res) => {
 
-    try {
+//     try {
 
-        const allVendorsData = await User.find({
+//         const allVendorsData = await User.find({
 
-            role: user_role.sales,
-        });
+//             role: user_role.sales,
+//         });
 
-        if (allVendorsData.length == 0) {
+//         if (allVendorsData.length == 0) {
 
-            return responseHandler(res, 400, false, "no vendor found ", null, null);
-        }
+//             return responseHandler(res, 400, false, "no vendor found ", null, null);
+//         }
 
-        return responseHandler(res, 200, true, "all vendors fetched success", allVendorsData, null);
+//         return responseHandler(res, 200, true, "all vendors fetched success", allVendorsData, null);
 
 
-    } catch (error) {
+//     } catch (error) {
 
-        console.log("error is :", error);
+//         console.log("error is :", error);
 
-        return responseHandler(res, 500, false, "error occur while fetch the vendors", null, error);
-    }
+//         return responseHandler(res, 500, false, "error occur while fetch the vendors", null, error);
+//     }
 
-}
+// }
+
+
 
 
 const getSpecificEnqueryData = async (req, res) => {
 
     try {
+
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+
+        if (!existingUser) {
+
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
 
         const { enqueryId } = req.params;
 
@@ -519,9 +663,23 @@ const getSpecificEnqueryData = async (req, res) => {
 }
 
 
+
 const fetchAllEnqueryAssignedToSpecificSalesPerson = async (req, res) => {
 
     try {
+
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+
+        if (!existingUser) {
+
+            return responseHandler(res, 400, false, "User not found", null);
+        }
 
 
         const { salesPersonId } = req.params;
@@ -550,6 +708,8 @@ const fetchAllEnqueryAssignedToSpecificSalesPerson = async (req, res) => {
 }
 
 
+
+
 export {
 
     createNewQuery,
@@ -558,10 +718,10 @@ export {
     getAllEnquery,
     assignVendorToEnquiry,
     deleteVendorAssignment,
-    getAllSalesPersonData,
+    // getAllSalesPersonData,
     respondToFollowUps,
-    getSpecificEnqueryData
-
+    getSpecificEnqueryData,
+    updateFollowUpStatus
 
 }
 

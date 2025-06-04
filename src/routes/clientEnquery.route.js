@@ -8,9 +8,10 @@ import {
     assignVendorToEnquiry,
     deleteVendorAssignment,
     addNewFollowups,
-    getAllSalesPersonData,
+    // getAllSalesPersonData,
     respondToFollowUps,
-    getSpecificEnqueryData
+    getSpecificEnqueryData,
+    updateFollowUpStatus
 
 } from "../controllers/clientEnquery.controller.js";
 
@@ -23,8 +24,9 @@ import { authorizeRoles } from "../middlewares/role.middleware.js";
 const router = express.Router();
 
 
+// it can be created by anyone 
 
-router.post("/create-enquery",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),createNewQuery);
+router.post("/create-enquery",createNewQuery);
 
 router.get("/get-all-enquery",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),getAllEnquery);
 
@@ -36,9 +38,12 @@ router.post("/add-new-followups", authMiddleware,authorizeRoles(user_role.admin,
 
 router.post("/respondToFollowUps",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),respondToFollowUps)
 
-router.get("/get-all-salespersonData",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),getAllSalesPersonData);
+// router.get("/get-all-salespersonData",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),getAllSalesPersonData);
 
 router.get("/get-specific-enquery-data/:enqueryId",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),getSpecificEnqueryData);
+
+
+router.post("/update-follow-up-status",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),updateFollowUpStatus);
 
 export default router;
 

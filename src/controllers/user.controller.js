@@ -84,10 +84,11 @@ const getAllMembersData = async (req, res) => {
 // Assign a salesperson to a client inquiry
 const assignPersonToEnquery = async (req, res) => {
   try {
-    const { id, enqueryId, salesPersonId } = req.body;
 
-    if (!id || !enqueryId || !salesPersonId) {
-      return responseHandler(res, 400, false, "Please fill all required fields");
+    const { id } = req.user;
+
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
     }
 
     const userExists = await checkUserExists(id);
@@ -95,7 +96,16 @@ const assignPersonToEnquery = async (req, res) => {
       return responseHandler(res, 400, false, "User not found", null);
     }
 
+    const { enqueryId, salesPersonId } = req.body;
+
+    if (!enqueryId || !salesPersonId) {
+
+      return responseHandler(res, 400, false, "Please fill all required fields");
+
+    }
+
     const enquery = await Client.findById(enqueryId);
+
     if (!enquery) {
       return responseHandler(res, 400, false, "Enquiry does not exist", null);
     }
@@ -128,8 +138,19 @@ const updateMembersData = async (req, res) => {
   try {
     const { name, email, phoneNo, password, role, userId } = req.body;
 
+    const { id } = req.user;
+
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
+    }
+
+    const userExists = await checkUserExists(id);
+    if (!userExists) {
+      return responseHandler(res, 400, false, "User not found", null);
+    }
+
     if (!userId) {
-      return responseHandler(res, 400, false, "User ID is required");
+      return responseHandler(res, 400, false, "User ID is required of the person who you want to update");
     }
 
     const dataToUpdate = {};

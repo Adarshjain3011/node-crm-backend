@@ -14,11 +14,26 @@ import { createNewOrder } from "./order.controller.js";
 
 import { syncOrderWithQuote } from "../utils/orderSync.js";
 
+import { checkUserExists } from "../utils/helper.js";
 
 // create an new quote for the specific enquery 
 
 const createNewQuote = async (req, res) => {
   try {
+
+    const { id } = req.user;
+
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
+    }
+
+    const existingUser = await checkUserExists(id);
+
+    if (!existingUser) {
+
+      return responseHandler(res, 400, false, "User not found", null);
+      
+    }
 
     const rawData = req.body?.data;
 
@@ -424,6 +439,8 @@ const updateQuoteStatus = async (req, res) => {
   }
 };
 
+
+
 // add new vendor to the quotes 
 
 
@@ -431,7 +448,7 @@ const addNewVendorToQuote = async (req, res) => {
   try {
     const { quoteId, itemIndex, vendorData } = req.body;
 
-    console.log("Request body for adding vendor:",vendorData);
+    console.log("Request body for adding vendor:", vendorData);
 
     if (!quoteId || itemIndex === undefined || !vendorData || !vendorData.vendorId) {
       return responseHandler(res, 400, false, "Quote ID, itemIndex, and vendor data (with vendorId) are required.");

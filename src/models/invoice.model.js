@@ -4,16 +4,16 @@ const invoiceSchema = new mongoose.Schema({
   // clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
   // orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true },
 
-  clientId:{
+  clientId: {
 
-    type:String,
+    type: String,
 
   },
 
-  orderId:{
+  orderId: {
 
 
-    type:String,
+    type: String,
 
 
   },
@@ -22,10 +22,29 @@ const invoiceSchema = new mongoose.Schema({
   invoiceNumber: { type: String, required: true, unique: true },
   invoiceDate: { type: Date, default: Date.now },
   // dueDate: { type: Date, required: true },
-  dueDate: { type: Date},
+  dueDate: { type: Date },
   buyerWorkOrderDate: { type: Date },
 
-  invoiceLink: { type: String }, // URL to the invoice document
+  // invoiceLink: { type: String }, // URL to the invoice document
+
+  // invoicePdfLinkGeneratedFromSystem: {
+
+  //   type: String
+
+  // },
+
+  invoiceExcelLink :{
+
+    type:String,
+
+  },
+
+  invoiceExcelPdfLink :{
+
+    type:String
+
+  },
+
 
   // Buyer Info
   buyerName: { type: String, required: true },
@@ -87,7 +106,7 @@ const invoiceSchema = new mongoose.Schema({
 });
 
 
-const Invoice =  mongoose.model("Invoice", invoiceSchema);
+const Invoice = mongoose.model("Invoice", invoiceSchema);
 
 export default Invoice;
 

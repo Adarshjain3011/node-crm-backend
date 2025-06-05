@@ -250,16 +250,20 @@
 
 
 
-
-
-
+import Order from '../models/order.model.js';
 import Invoice from '../models/invoice.model.js';
+import Client from '../models/clientEnquery.model.js';
 
 import { checkUserExists } from '../utils/helper.js';
+import responseHandler from '../utils/responseHandler.js';
 
+import uploadImage from '../utils/upload.js';
+
+// import puppeteer from "puppeteer";
+
+// Create a new invoice
 const createNewInvoice = async (req, res) => {
   try {
-
     const { id } = req.user;
 
     if (!id) {
@@ -267,14 +271,13 @@ const createNewInvoice = async (req, res) => {
     }
 
     const userExists = await checkUserExists(id);
-
     if (!userExists) {
-
       return responseHandler(res, 400, false, "User not found", null);
-
     }
 
     const {
+      orderId,
+      clientId,
       buyerName,
       buyerAddress,
       buyerGSTIN,
@@ -301,11 +304,27 @@ const createNewInvoice = async (req, res) => {
       notes,
     } = req.body;
 
-    if (!buyerName || !buyerAddress || !buyerGSTIN || !invoiceNumber || !items || items.length === 0) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (
+      !buyerName || !buyerAddress || !buyerGSTIN ||
+      !invoiceNumber || !items || items.length === 0 ||
+      !clientId || !orderId
+    ) {
+      return responseHandler(res, 400, false, "Missing required fields", null);
+    }
+
+    const isOrderExists = await Order.findById(orderId);
+    if (!isOrderExists) {
+      return responseHandler(res, 400, false, "Order does not exist", null);
+    }
+
+    const isClientExists = await Client.findById(clientId);
+    if (!isClientExists) {
+      return responseHandler(res, 400, false, "Client does not exist", null);
     }
 
     const newInvoice = new Invoice({
+      orderId,
+      clientId,
       buyerName,
       buyerAddress,
       buyerGSTIN,
@@ -327,7 +346,7 @@ const createNewInvoice = async (req, res) => {
       sgstAmount: sgstAmount || 0,
       igstAmount: igstAmount || 0,
       gstAmount,
-      createdBy:userExists._id,
+      createdBy: userExists._id,
       totalAmount,
       paymentTerms: paymentTerms || '',
       notes: notes || '',
@@ -335,11 +354,198 @@ const createNewInvoice = async (req, res) => {
 
     await newInvoice.save();
 
-    return res.status(201).json({ success: true, message: 'Invoice created successfully', invoice: newInvoice });
+    return responseHandler(res, 201, true, "Invoice created successfully", newInvoice);
   } catch (error) {
     console.error('Error creating invoice:', error);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
+    return responseHandler(res, 500, false, "Internal server error", null);
   }
 };
 
-export { createNewInvoice };
+// Get invoice form data
+const getInvoiceFormDetails = async (req, res) => {
+  try {
+    const { id } = req.user;
+
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
+    }
+
+    const userExists = await checkUserExists(id);
+    if (!userExists) {
+      return responseHandler(res, 400, false, "User not found", null);
+    }
+
+    const { orderId, clientId } = req.body;
+
+    if (!orderId || !clientId) {
+      return responseHandler(res, 400, false, "All fields are required", null);
+    }
+
+    const isOrderExists = await Order.findById(orderId);
+    if (!isOrderExists) {
+      return responseHandler(res, 400, false, "Order does not exist", null);
+    }
+
+    const isClientExists = await Client.findById(clientId);
+    if (!isClientExists) {
+      return responseHandler(res, 400, false, "Client does not exist", null);
+    }
+
+    const invoiceFormData = await Invoice.findOne({ clientId, orderId });
+
+    if (invoiceFormData) {
+      return responseHandler(res, 200, true, "Invoice form data fetched successfully", invoiceFormData);
+    } else {
+      return responseHandler(res, 205, true, "Invoice form data does not exist for this order and client", null);
+    }
+  } catch (error) {
+    console.error("Error fetching invoice form data:", error);
+    return responseHandler(res, 500, false, "Error fetching invoice form data", null);
+  }
+};
+
+// Update invoice data
+
+const updateInvoiceFormData = async (req, res) => {
+  try {
+    const { id } = req.user;
+
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
+    }
+
+    const userExists = await checkUserExists(id);
+    if (!userExists) {
+      return responseHandler(res, 400, false, "User not found", null);
+    }
+
+    const { invoiceId, updates } = req.body;
+
+    if (!invoiceId || !updates || typeof updates !== 'object') {
+      return responseHandler(res, 400, false, "Invoice ID and updates are required", null);
+    }
+
+    const invoice = await Invoice.findById(invoiceId);
+    if (!invoice) {
+      return responseHandler(res, 404, false, "Invoice not found", null);
+    }
+
+    Object.entries(updates).forEach(([key, value]) => {
+      invoice[key] = value;
+    });
+
+    await invoice.save();
+
+    return responseHandler(res, 200, true, "Invoice updated successfully", invoice);
+  } catch (error) {
+    console.error("Error updating invoice:", error);
+    return responseHandler(res, 500, false, "Internal server error", null);
+  }
+};
+
+
+
+
+import ExcelJS from "exceljs";
+import fs from "fs";
+import path from "path";
+
+
+const uploadInvoiceExcelAndPdf = async (req, res) => {
+  try {
+    const { id } = req.user;
+    if (!id) return responseHandler(res, 401, false, "User not authorized", null);
+
+    const userExists = await checkUserExists(id);
+    if (!userExists) return responseHandler(res, 400, false, "User not found", null);
+
+    const { invoiceId } = req.body;
+
+    // check invoice exists 
+
+    if (!invoiceId) {
+
+      return responseHandler(res, 400, false, "invoice id is requrired", null);
+
+    }
+
+    const isInvoiceExists = await Invoice.findById(invoiceId);
+
+    if (!isInvoiceExists) {
+
+      return responseHandler(res, 400, false, "invoice does not exists", null);
+
+    }
+
+    const excelFile = req.files?.excelFile;
+
+    if (!invoiceId || !excelFile) {
+      return responseHandler(res, 400, false, "Missing invoiceId or Excel file", null);
+    }
+
+    // ✅ Save Excel temporarily
+    const tempExcelPath = path.join(__dirname, `../temp/invoice-${invoiceId}.xlsx`);
+    await excelFile.mv(tempExcelPath);
+
+    // ✅ Upload Excel to Cloudinary
+    const uploadedExcel = await uploadImage(tempExcelPath);
+    const excelUrl = uploadedExcel?.secure_url;
+
+    // ✅ Read Excel and convert to simple HTML
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(tempExcelPath);
+    const worksheet = workbook.getWorksheet(1);
+
+    let html = `<html><head><style>
+        table { border-collapse: collapse; width: 100%; }
+        td, th { border: 1px solid #888; padding: 8px; font-family: sans-serif; }
+    </style></head><body><h2>Invoice</h2><table>`;
+
+    worksheet.eachRow((row, rowNumber) => {
+      html += `<tr>`;
+      row.eachCell((cell) => {
+        html += `<td>${cell.value}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `</table></body></html>`;
+
+    // ✅ Convert HTML to PDF using Puppeteer
+    const tempPdfPath = path.join(__dirname, `../temp/invoice-${invoiceId}.pdf`);
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.setContent(html);
+    await page.pdf({ path: tempPdfPath, format: "A4" });
+    await browser.close();
+
+    // ✅ Upload PDF
+    const uploadedPdf = await uploadImage(tempPdfPath);
+    const pdfUrl = uploadedPdf?.secure_url;
+
+    // ✅ Cleanup
+    fs.unlinkSync(tempExcelPath);
+    fs.unlinkSync(tempPdfPath);
+
+    isInvoiceExists.invoiceExcelLink = excelUrl;
+    isInvoiceExists.invoiceExcelPdfLink = pdfUrl;
+
+    await isInvoiceExists.save();
+
+    return responseHandler(res, 200, true, "Excel & PDF uploaded successfully",isInvoiceExists);
+
+  } catch (error) {
+    console.error(error);
+    return responseHandler(res, 500, false, "Error uploading files", null);
+  }
+};
+
+
+export {
+  createNewInvoice,
+  getInvoiceFormDetails,
+  updateInvoiceFormData,
+  uploadInvoiceExcelAndPdf
+};
+
+

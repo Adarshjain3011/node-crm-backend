@@ -91,18 +91,18 @@ const getAllEnquery = async (req, res) => {
         }
 
         const allEnquery = await Client.find()
-        .populate("assignedTo", "name")
-        .populate("assignedBy", "name")
-        .populate("followUps.noteAddByUser", "name")
-        .populate({
-          path: "followUps.responses",
-          populate: {
-            path: "respondedBy",
-            select: "name"
-          }
-        })
-        .sort({ createdAt: -1 });
-      
+            .populate("assignedTo", "name")
+            .populate("assignedBy", "name")
+            .populate("followUps.noteAddByUser", "name")
+            .populate({
+                path: "followUps.responses",
+                populate: {
+                    path: "respondedBy",
+                    select: "name"
+                }
+            })
+            .sort({ createdAt: -1 });
+
         return responseHandler(res, 200, true, "Enquery fetched successfully", allEnquery);
 
     } catch (error) {
@@ -465,7 +465,7 @@ const respondToFollowUps = async (req, res) => {
         }
 
         // Find the followUp by followUpId
-        
+
         const followUp = client.followUps.id(followUpId);
         if (!followUp) {
             return responseHandler(res, 400, false, "Follow-up not found", null);
@@ -574,39 +574,6 @@ const deleteSpecificFollowUp = async (req, res) => {
 
     }
 }
-
-
-
-
-// get all vendors  
-
-// const getAllSalesPersonData = async (req, res) => {
-
-//     try {
-
-//         const allVendorsData = await User.find({
-
-//             role: user_role.sales,
-//         });
-
-//         if (allVendorsData.length == 0) {
-
-//             return responseHandler(res, 400, false, "no vendor found ", null, null);
-//         }
-
-//         return responseHandler(res, 200, true, "all vendors fetched success", allVendorsData, null);
-
-
-//     } catch (error) {
-
-//         console.log("error is :", error);
-
-//         return responseHandler(res, 500, false, "error occur while fetch the vendors", null, error);
-//     }
-
-// }
-
-
 
 
 const getSpecificEnqueryData = async (req, res) => {
@@ -718,7 +685,6 @@ export {
     getAllEnquery,
     assignVendorToEnquiry,
     deleteVendorAssignment,
-    // getAllSalesPersonData,
     respondToFollowUps,
     getSpecificEnqueryData,
     updateFollowUpStatus

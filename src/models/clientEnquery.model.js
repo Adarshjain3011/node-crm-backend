@@ -13,6 +13,11 @@ const clientSchema = new mongoose.Schema({
   sourceWebsite: { type: String },
   sourcePlatform: { type: String },
 
+  productLink :{
+
+    type: String,
+
+  },
   // Assignment
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

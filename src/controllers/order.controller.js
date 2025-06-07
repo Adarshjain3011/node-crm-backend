@@ -2,12 +2,30 @@ import responseHandler from "../utils/responseHandler.js"
 
 import Quote from "../models/quote.model.js";
 import Order from "../models/order.model.js";
-import { quote_status, vendor_delivery_status } from "../utils/data.js";
+import { quote_status, user_role, vendor_delivery_status } from "../utils/data.js";
+
+import { checkUserExists } from "../utils/helper.js";
+
+// create new order 
 
 const createNewOrder = async ({ quoteId, clientId }) => {
 
-    
+
     try {
+
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+
+        if (!existingUser) {
+
+            return responseHandler(res, 400, false, "User not found", null);
+
+        }
 
         // Validate input
         if (!quoteId || !clientId) {
@@ -30,12 +48,6 @@ const createNewOrder = async ({ quoteId, clientId }) => {
         if (!quote) {
             throw new Error("Quote not found");
         }
-
-        // Validate quote status
-
-        // if (quote.status.toLowerCase() !== quote_status.APPROVED.toLowerCase()) {
-        //     throw new Error("Cannot create order: Quote is not approved");
-        // }
 
         // Build vendor assignments from quote items
         const vendorAssignments = [];
@@ -89,10 +101,26 @@ const createNewOrder = async ({ quoteId, clientId }) => {
 
 
 // Get order details
+
 const getOrderDetails = async (req, res) => {
     try {
+
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+
+        if (!existingUser) {
+
+            return responseHandler(res, 400, false, "User not found", null);
+
+        }
+
         const { orderId } = req.params;
-        
+
         if (!orderId) {
             return responseHandler(res, 400, false, "Order ID is required");
         }
@@ -113,9 +141,29 @@ const getOrderDetails = async (req, res) => {
     }
 };
 
+
+
 // Update order status
+
 const updateOrderStatus = async (req, res) => {
+
+
     try {
+
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+
+        if (!existingUser) {
+
+            return responseHandler(res, 400, false, "User not found", null);
+
+        }
+
         const { orderId, status, remarks } = req.body;
 
         if (!orderId || !status) {
@@ -144,14 +192,52 @@ const updateOrderStatus = async (req, res) => {
     }
 };
 
+
+
 // Get all orders
+
 const getAllOrders = async (req, res) => {
     try {
-        const orders = await Order.find()
-            .populate('clientId')
-            .populate('invoiceId')
-            .populate('finalQuotationId')
-            .sort({ createdAt: -1 });
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
+        let orders;
+
+        if (existingUser.role === user_role.admin) {
+            // Admin gets all orders
+            orders = await Order.find()
+                .populate({
+                    path: 'clientId',
+                    populate: { path: 'assignedTo' }
+                })
+                .populate('invoiceId')
+                .populate('finalQuotationId')
+                .sort({ createdAt: -1 });
+        } else {
+            // For other users, filter orders where clientId.assignedTo === current user
+            orders = await Order.find()
+                .populate({
+                    path: 'clientId',
+                    populate: { path: 'assignedTo' }
+                })
+                .populate('invoiceId')
+                .populate('finalQuotationId')
+                .sort({ createdAt: -1 });
+
+            // Filter in JS after populating
+            orders = orders.filter(order =>
+                order.clientId?.assignedTo?._id?.toString() === id
+            );
+        }
 
         return responseHandler(res, 200, true, "Orders fetched successfully", orders);
     } catch (error) {
@@ -159,6 +245,7 @@ const getAllOrders = async (req, res) => {
         return responseHandler(res, 500, false, "Error fetching orders", null, error.message);
     }
 };
+
 
 export {
     createNewOrder,

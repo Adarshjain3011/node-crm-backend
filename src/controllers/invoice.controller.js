@@ -385,6 +385,7 @@ const createNewInvoice = async (req, res) => {
 
 
 // Get invoice form data
+
 const getInvoiceFormDetails = async (req, res) => {
 
   console.log("get invoice details ke andar at backend ")
@@ -436,6 +437,8 @@ const getInvoiceFormDetails = async (req, res) => {
     return responseHandler(res, 500, false, "Error fetching invoice form data", null, error);
   }
 };
+
+
 
 // Update invoice data
 
@@ -527,6 +530,40 @@ const deleteInvoiceForm = async (req, res) => {
   }
 }
 
+
+const getAllInvoiceForm = async (req, res) => {
+
+  try {
+
+    const { id } = req.user;
+
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
+    }
+
+    const userExists = await checkUserExists(id);
+    if (!userExists) {
+      return responseHandler(res, 400, false, "User not found", null);
+    }
+
+    const allInvoiceForm = await Invoice.find({});
+
+    if (allInvoiceForm.length === 0) {
+
+      return responseHandler(res, 400, false, "no invoices found ", null);
+
+    }
+
+    return responseHandler(res, 200, true, "all invoice form data fetched successfully",allInvoiceForm);
+
+  } catch (error) {
+
+    console.log("error is : ", error);
+
+    return responseHandler(res, 400, false, "error occur while fetching the invoice data ")
+
+  }
+}
 
 
 
@@ -876,11 +913,11 @@ const uploadInvoiceExcelAndPdf = async (req, res) => {
     // Update invoice based on file type
     if (fileExt === ".pdf") {
       isInvoiceExists.invoiceExcelPdfLink = uploadedFileCloud.secure_url;
-      isInvoiceExists.invoiceExcelLink = "";
+      // isInvoiceExists.invoiceExcelLink = "";
     } else {
       // Excel file
       isInvoiceExists.invoiceExcelLink = uploadedFileCloud.secure_url;
-      isInvoiceExists.invoiceExcelPdfLink = "";
+      // isInvoiceExists.invoiceExcelPdfLink = "";
     }
 
     await isInvoiceExists.save();
@@ -912,7 +949,8 @@ export {
   getInvoiceFormDetails,
   updateInvoiceFormData,
   uploadInvoiceExcelAndPdf,
-  deleteInvoiceForm
+  deleteInvoiceForm,
+  getAllInvoiceForm
 };
 
 

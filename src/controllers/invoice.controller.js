@@ -322,6 +322,23 @@ const createNewInvoice = async (req, res) => {
       return responseHandler(res, 400, false, "Client does not exist", null);
     }
 
+    // check before creating an invoice 
+
+    const isInvoiceAlreadyExists = await Invoice.findOne({
+
+      orderId: orderId,
+      clientId: clientId,
+
+    })
+
+    console.log("isInvoiceAlreadyExists", isInvoiceAlreadyExists);
+
+    if (isInvoiceAlreadyExists) {
+
+      return responseHandler(res, 400, false, "this invoice is already exists duplicate not allowed", null);
+
+    }
+
     const newInvoice = new Invoice({
       orderId,
       clientId,
@@ -354,15 +371,24 @@ const createNewInvoice = async (req, res) => {
 
     await newInvoice.save();
 
+    isOrderExists.invoiceId = newInvoice._id;
+
+    await isOrderExists.save();
+
     return responseHandler(res, 201, true, "Invoice created successfully", newInvoice);
   } catch (error) {
     console.error('Error creating invoice:', error);
-    return responseHandler(res, 500, false, "Internal server error", null);
+    return responseHandler(res, 500, false, error.meessage, null, error);
   }
 };
 
+
+
 // Get invoice form data
 const getInvoiceFormDetails = async (req, res) => {
+
+  console.log("get invoice details ke andar at backend ")
+
   try {
     const { id } = req.user;
 
@@ -381,7 +407,12 @@ const getInvoiceFormDetails = async (req, res) => {
       return responseHandler(res, 400, false, "All fields are required", null);
     }
 
+    console.log("orderId and clientId is : ", orderId, clientId);
+
     const isOrderExists = await Order.findById(orderId);
+
+    console.log("order data is : ", isOrderExists);
+
     if (!isOrderExists) {
       return responseHandler(res, 400, false, "Order does not exist", null);
     }
@@ -393,14 +424,16 @@ const getInvoiceFormDetails = async (req, res) => {
 
     const invoiceFormData = await Invoice.findOne({ clientId, orderId });
 
+    console.log("invoice form data is : ", invoiceFormData);
+
     if (invoiceFormData) {
       return responseHandler(res, 200, true, "Invoice form data fetched successfully", invoiceFormData);
     } else {
-      return responseHandler(res, 205, true, "Invoice form data does not exist for this order and client", null);
+      return responseHandler(res, 400, true, "invoice data does not found", null);
     }
   } catch (error) {
     console.error("Error fetching invoice form data:", error);
-    return responseHandler(res, 500, false, "Error fetching invoice form data", null);
+    return responseHandler(res, 500, false, "Error fetching invoice form data", null, error);
   }
 };
 
@@ -439,9 +472,60 @@ const updateInvoiceFormData = async (req, res) => {
     return responseHandler(res, 200, true, "Invoice updated successfully", invoice);
   } catch (error) {
     console.error("Error updating invoice:", error);
-    return responseHandler(res, 500, false, "Internal server error", null);
+    return responseHandler(res, 500, false, "Internal server error", null, error);
   }
 };
+
+
+const deleteInvoiceForm = async (req, res) => {
+
+  try {
+
+    const { id } = req.user;
+
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
+    }
+
+    const userExists = await checkUserExists(id);
+    if (!userExists) {
+      return responseHandler(res, 400, false, "User not found", null);
+    }
+
+    const { invoiceId } = req.params;
+
+    console.log("invoice id is : ", invoiceId);
+
+
+    if (!invoiceId) {
+
+      return responseHandler(res, 400, false, "Invoice ID are requrired", null);
+
+    }
+
+    // check invoice is exists or not 
+
+    const isInvoiceExists = await Invoice.findByIdAndDelete(invoiceId);
+
+    console.log("delete invoice data ", isInvoiceExists);
+
+    const isOrderExists = await Order.findOne({ _id: isInvoiceExists.orderId });
+
+    console.log("is order exists data : ", isOrderExists);
+
+    isOrderExists.invoiceId = "";
+
+    await isOrderExists.save();
+
+    return responseHandler(res, 200, true, "Invoice deleted successfully", isInvoiceExists);
+
+  } catch (error) {
+
+    console.log("error is : ", error);
+    return responseHandler(res, 500, false, "Internal server error", null, error);
+
+  }
+}
 
 
 
@@ -449,9 +533,300 @@ const updateInvoiceFormData = async (req, res) => {
 import ExcelJS from "exceljs";
 import fs from "fs";
 import path from "path";
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import puppeteer from "puppeteer";
+
+// Define __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// const uploadInvoiceExcelAndPdf = async (req, res) => {
+//   let tempExcelPath = null;
+//   let tempPdfPath = null;
+//   let browser = null;
+
+//   try {
+//     const { id } = req.user;
+//     if (!id) return responseHandler(res, 401, false, "User not authorized", null);
+
+//     const userExists = await checkUserExists(id);
+//     if (!userExists) return responseHandler(res, 400, false, "User not found", null);
+
+//     const { invoiceId } = req.body;
+//     if (!invoiceId) {
+//       return responseHandler(res, 400, false, "invoiceId is required", null);
+//     }
+
+//     const isInvoiceExists = await Invoice.findById(invoiceId);
+//     if (!isInvoiceExists) {
+//       return responseHandler(res, 400, false, "Invoice does not exist", null);
+//     }
+
+//     const excelFile = req.files?.excelFile;
+//     if (!excelFile) {
+//       return responseHandler(res, 400, false, "Excel file is required", null);
+//     }
+
+//     // Ensure tmp directory exists
+//     const tmpDir = path.join(__dirname, "../tmp");
+//     if (!fs.existsSync(tmpDir)) {
+//       fs.mkdirSync(tmpDir, { recursive: true });
+//     }
+
+//     // Save Excel temporarily with timestamp to avoid conflicts
+//     const timestamp = Date.now();
+//     tempExcelPath = path.join(tmpDir, `invoice-${invoiceId}-${timestamp}.xlsx`);
+//     await excelFile.mv(tempExcelPath);
+
+//     // Upload Excel to Cloudinary
+//     const uploadedExcel = await uploadImage(tempExcelPath);
+//     if (!uploadedExcel?.secure_url) {
+//       throw new Error("Failed to upload Excel file to Cloudinary");
+//     }
+//     const excelUrl = uploadedExcel.secure_url;
+
+//     // Read Excel and convert to HTML with improved formatting
+//     const workbook = new ExcelJS.Workbook();
+//     await workbook.xlsx.readFile(tempExcelPath);
+
+//     // Try to get Sheet 2, fallback to first sheet if not found
+//     const worksheet = workbook.getWorksheet(2) || workbook.getWorksheet(1);
+//     if (!worksheet) {
+//       throw new Error("No worksheet found in Excel file");
+//     }
+
+//     let html = `
+//       <!DOCTYPE html>
+//       <html>
+//       <head>
+//         <meta charset="UTF-8">
+//         <style>
+//           body { 
+//             font-family: Arial, sans-serif; 
+//             margin: 20px;
+//             -webkit-print-color-adjust: exact !important;
+//             print-color-adjust: exact !important;
+//           }
+//           table { 
+//             border-collapse: collapse; 
+//             width: 100%; 
+//             margin-top: 20px;
+//             page-break-inside: auto;
+//           }
+//           tr { 
+//             page-break-inside: avoid; 
+//             page-break-after: auto;
+//           }
+//           td, th { 
+//             border: 1px solid #ddd; 
+//             padding: 8px; 
+//             font-size: 12px;
+//             text-align: left;
+//             overflow-wrap: break-word;
+//             max-width: 200px;
+//           }
+//           th { 
+//             background-color: #f8f9fa; 
+//             font-weight: bold;
+//           }
+//           .header { 
+//             margin-bottom: 20px;
+//             text-align: center;
+//           }
+//           @page { 
+//             margin: 20px;
+//             size: A4;
+//           }
+//           @media print {
+//             body { -webkit-print-color-adjust: exact !important; }
+//             th { background-color: #f8f9fa !important; }
+//           }
+//         </style>
+//       </head>
+//       <body>
+//         <div class="header">
+//           <h2>Invoice #${isInvoiceExists.invoiceNumber || ''}</h2>
+//           <p>Date: ${new Date().toLocaleDateString()}</p>
+//         </div>
+//         <table>
+//     `;
+
+//     // Calculate optimal column widths
+//     const colWidths = [];
+//     worksheet.columns.forEach(col => {
+//       const maxLength = Math.max(
+//         ...(col.values || []).filter(Boolean).map(v => 
+//           String(v?.text || v?.result || v || '').length
+//         ) || [10]
+//       );
+//       colWidths.push(Math.min(Math.max(maxLength * 7, 50), 200)); // min 50px, max 200px
+//     });
+
+//     // Add header row
+//     html += '<tr>';
+//     worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
+//       let value = '';
+//       try {
+//         value = cell?.text || cell?.value || '';
+//       } catch (err) {
+//         console.warn(`Warning: Could not read header cell value at column ${colNumber}`, err);
+//       }
+//       html += `<th style="width: ${colWidths[colNumber-1]}px">${value}</th>`;
+//     });
+//     html += '</tr>';
+
+//     // Add data rows with improved value handling
+//     for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
+//       const row = worksheet.getRow(rowNumber);
+//       if (row.hasValues) {
+//         html += '<tr>';
+//         row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+//           let value = '';
+
+//           try {
+//             // Handle different cell types
+//             if (!cell || cell.value === null || cell.value === undefined) {
+//               value = '';
+//             } else if (cell.type === ExcelJS.ValueType.RichText && cell.richText) {
+//               value = cell.richText.map(rt => rt?.text || '').join('');
+//             } else if (cell.type === ExcelJS.ValueType.Hyperlink && cell.value) {
+//               value = cell.value.text || cell.value.address || '';
+//             } else if (cell.type === ExcelJS.ValueType.Formula) {
+//               value = (cell.result !== null && cell.result !== undefined) ? String(cell.result) : '';
+//             } else if (cell.type === ExcelJS.ValueType.Date && cell.value) {
+//               value = cell.value.toLocaleDateString() || '';
+//             } else if (cell.type === ExcelJS.ValueType.Number && cell.value !== null) {
+//               value = String(cell.value);
+//             } else {
+//               // Default handling for other types
+//               value = (cell.text !== null && cell.text !== undefined) ? cell.text : 
+//                      (cell.value !== null && cell.value !== undefined) ? String(cell.value) : '';
+//             }
+//           } catch (err) {
+//             console.warn(`Warning: Could not read cell value at row ${rowNumber}, column ${colNumber}`, err);
+//             value = '';
+//           }
+
+//           // Sanitize the value to prevent HTML injection
+//           value = value.toString()
+//             .replace(/&/g, '&amp;')
+//             .replace(/</g, '&lt;')
+//             .replace(/>/g, '&gt;')
+//             .replace(/"/g, '&quot;')
+//             .replace(/'/g, '&#039;');
+
+//           html += `<td style="width: ${colWidths[colNumber-1]}px">${value}</td>`;
+//         });
+//         html += '</tr>';
+//       } else {
+//         // Add empty row with correct number of columns
+//         html += '<tr>';
+//         for (let i = 0; i < colWidths.length; i++) {
+//           html += `<td style="width: ${colWidths[i]}px"></td>`;
+//         }
+//         html += '</tr>';
+//       }
+//     }
+
+//     html += `</table></body></html>`;
+
+//     // Convert HTML to PDF with improved Puppeteer configuration
+//     tempPdfPath = path.join(tmpDir, `invoice-${invoiceId}-${timestamp}.pdf`);
+
+//     // Launch browser with updated Puppeteer 24.x configuration
+//     browser = await puppeteer.launch({
+//       headless: "new",
+//       args: [
+//         '--no-sandbox',
+//         '--disable-setuid-sandbox',
+//         '--disable-dev-shm-usage',
+//         '--font-render-hinting=none'
+//       ]
+//     });
+
+//     const page = await browser.newPage();
+//     await page.setViewport({ width: 1200, height: 800 });
+
+//     // Set content with timeout and wait options
+//     await page.setContent(html, { 
+//       waitUntil: ['networkidle0', 'domcontentloaded'],
+//       timeout: 30000
+//     });
+
+//     // Generate PDF with improved options
+//     await page.pdf({
+//       path: tempPdfPath,
+//       format: 'A4',
+//       printBackground: true,
+//       preferCSSPageSize: true,
+//       margin: {
+//         top: '20px',
+//         right: '20px',
+//         bottom: '20px',
+//         left: '20px'
+//       },
+//       displayHeaderFooter: true,
+//       headerTemplate: '<div></div>',
+//       footerTemplate: '<div style="font-size: 10px; text-align: center; width: 100%;"><span class="pageNumber"></span> of <span class="totalPages"></span></div>'
+//     });
+
+//     // Upload PDF to Cloudinary
+//     const uploadedPdf = await uploadImage(tempPdfPath);
+//     if (!uploadedPdf?.secure_url) {
+//       throw new Error("Failed to upload PDF file to Cloudinary");
+//     }
+//     const pdfUrl = uploadedPdf.secure_url;
+
+//     // Update invoice record
+//     isInvoiceExists.invoiceExcelLink = excelUrl;
+//     isInvoiceExists.invoiceExcelPdfLink = pdfUrl;
+//     await isInvoiceExists.save();
+
+//     return responseHandler(res, 200, true, "Excel and PDF uploaded successfully", isInvoiceExists);
+
+//   } catch (error) {
+//     console.error("Error in uploadInvoiceExcelAndPdf:", error);
+//     return responseHandler(
+//       res, 
+//       500, 
+//       false, 
+//       `Error uploading files: ${error.message}`, 
+//       null, 
+//       error
+//     );
+//   } finally {
+//     // Cleanup resources
+//     if (browser) {
+//       try {
+//         await browser.close();
+//       } catch (err) {
+//         console.error("Error closing browser:", err);
+//       }
+//     }
+
+//     // Cleanup temporary files
+//     if (tempExcelPath && fs.existsSync(tempExcelPath)) {
+//       try {
+//         fs.unlinkSync(tempExcelPath);
+//       } catch (err) {
+//         console.error("Error deleting temp Excel file:", err);
+//       }
+//     }
+//     if (tempPdfPath && fs.existsSync(tempPdfPath)) {
+//       try {
+//         fs.unlinkSync(tempPdfPath);
+//       } catch (err) {
+//         console.error("Error deleting temp PDF file:", err);
+//       }
+//     }
+//   }
+// };
 
 
 const uploadInvoiceExcelAndPdf = async (req, res) => {
+  let tempFilePath = null;
+
   try {
     const { id } = req.user;
     if (!id) return responseHandler(res, 401, false, "User not authorized", null);
@@ -460,92 +835,84 @@ const uploadInvoiceExcelAndPdf = async (req, res) => {
     if (!userExists) return responseHandler(res, 400, false, "User not found", null);
 
     const { invoiceId } = req.body;
-
-    // check invoice exists 
-
     if (!invoiceId) {
-
-      return responseHandler(res, 400, false, "invoice id is requrired", null);
-
+      return responseHandler(res, 400, false, "invoiceId is required", null);
     }
 
     const isInvoiceExists = await Invoice.findById(invoiceId);
-
     if (!isInvoiceExists) {
-
-      return responseHandler(res, 400, false, "invoice does not exists", null);
-
+      return responseHandler(res, 400, false, "Invoice does not exist", null);
     }
 
-    const excelFile = req.files?.excelFile;
-
-    if (!invoiceId || !excelFile) {
-      return responseHandler(res, 400, false, "Missing invoiceId or Excel file", null);
+    const uploadedFile = req.files?.excelFile;
+    if (!uploadedFile) {
+      return responseHandler(res, 400, false, "File is required", null);
     }
 
-    // ✅ Save Excel temporarily
-    const tempExcelPath = path.join(__dirname, `../temp/invoice-${invoiceId}.xlsx`);
-    await excelFile.mv(tempExcelPath);
+    // Ensure tmp directory exists
+    const tmpDir = path.join(__dirname, "../tmp");
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
 
-    // ✅ Upload Excel to Cloudinary
-    const uploadedExcel = await uploadImage(tempExcelPath);
-    const excelUrl = uploadedExcel?.secure_url;
+    // Save the file temporarily
+    const timestamp = Date.now();
+    const fileExt = path.extname(uploadedFile.name).toLowerCase(); // .xlsx, .xls or .pdf
+    const baseName = `invoice-${invoiceId}-${timestamp}${fileExt}`;
+    tempFilePath = path.join(tmpDir, baseName);
+    await uploadedFile.mv(tempFilePath);
 
-    // ✅ Read Excel and convert to simple HTML
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(tempExcelPath);
-    const worksheet = workbook.getWorksheet(1);
+    // Only allow .xlsx, .xls, or .pdf files
+    if (![".xlsx", ".xls", ".pdf"].includes(fileExt)) {
+      return responseHandler(res, 400, false, "Only .xlsx, .xls or .pdf files are allowed", null);
+    }
 
-    let html = `<html><head><style>
-        table { border-collapse: collapse; width: 100%; }
-        td, th { border: 1px solid #888; padding: 8px; font-family: sans-serif; }
-    </style></head><body><h2>Invoice</h2><table>`;
+    // Upload file as-is to Cloudinary
+    const uploadedFileCloud = await uploadImage(tempFilePath);
+    if (!uploadedFileCloud?.secure_url) {
+      throw new Error("Failed to upload file to Cloudinary");
+    }
 
-    worksheet.eachRow((row, rowNumber) => {
-      html += `<tr>`;
-      row.eachCell((cell) => {
-        html += `<td>${cell.value}</td>`;
-      });
-      html += `</tr>`;
-    });
-
-    html += `</table></body></html>`;
-
-    // ✅ Convert HTML to PDF using Puppeteer
-    const tempPdfPath = path.join(__dirname, `../temp/invoice-${invoiceId}.pdf`);
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    await page.setContent(html);
-    await page.pdf({ path: tempPdfPath, format: "A4" });
-    await browser.close();
-
-    // ✅ Upload PDF
-    const uploadedPdf = await uploadImage(tempPdfPath);
-    const pdfUrl = uploadedPdf?.secure_url;
-
-    // ✅ Cleanup
-    fs.unlinkSync(tempExcelPath);
-    fs.unlinkSync(tempPdfPath);
-
-    isInvoiceExists.invoiceExcelLink = excelUrl;
-    isInvoiceExists.invoiceExcelPdfLink = pdfUrl;
+    // Update invoice based on file type
+    if (fileExt === ".pdf") {
+      isInvoiceExists.invoiceExcelPdfLink = uploadedFileCloud.secure_url;
+      isInvoiceExists.invoiceExcelLink = "";
+    } else {
+      // Excel file
+      isInvoiceExists.invoiceExcelLink = uploadedFileCloud.secure_url;
+      isInvoiceExists.invoiceExcelPdfLink = "";
+    }
 
     await isInvoiceExists.save();
 
-    return responseHandler(res, 200, true, "Excel & PDF uploaded successfully",isInvoiceExists);
+    return responseHandler(res, 200, true, `${fileExt.toUpperCase()} file uploaded successfully`, isInvoiceExists);
 
   } catch (error) {
-    console.error(error);
-    return responseHandler(res, 500, false, "Error uploading files", null);
+    console.error("Error in uploadInvoiceExcelAndPdf:", error);
+    return responseHandler(
+      res,
+      500,
+      false,
+      `Error uploading files: ${error.message}`,
+      null,
+      error
+    );
+  } finally {
+    // Cleanup
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch (err) { }
+    }
   }
 };
+
 
 
 export {
   createNewInvoice,
   getInvoiceFormDetails,
   updateInvoiceFormData,
-  uploadInvoiceExcelAndPdf
+  uploadInvoiceExcelAndPdf,
+  deleteInvoiceForm
 };
 
 

@@ -149,6 +149,7 @@ const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find()
             .populate('clientId')
+            .populate('invoiceId')
             .populate('finalQuotationId')
             .sort({ createdAt: -1 });
 

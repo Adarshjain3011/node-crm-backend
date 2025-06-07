@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import Quote from "./quote.model.js";
 import { vendor_delivery_status } from "../utils/data.js";
 
+import Invoice from "./invoice.model.js";
+
 const vendorAssignmentSchema = new mongoose.Schema({
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
     itemRef: String,
@@ -29,6 +31,12 @@ const orderSchema = new mongoose.Schema({
     finalQuotationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quote' },
     vendorAssignments: [vendorAssignmentSchema],
     documents: [String],  // URLs of delivery proofs, receipts etc.
+    invoiceId:{
+
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"Invoice"
+
+    },
     deliveryStatus: {
         type: String,
         enum: ['Pending', 'In Production', 'Packing', 'Shipped', 'Delivered'],

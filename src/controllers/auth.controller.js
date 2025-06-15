@@ -64,10 +64,10 @@ export const login = async (req, res) => {
         const cookieOptions = {
             maxAge: 24 * 60 * 60 * 1000, // 1 day
             httpOnly: true,
-            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-            secure: process.env.NODE_ENV === 'production', // true in production, false in development
-            path: '/', // Ensure cookie is available across all paths
-            // domain: process.env.COOKIE_DOMAIN || undefined // Set domain in production
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-domain in production
+            secure: process.env.NODE_ENV === 'production', // must be true if sameSite is 'none'
+            path: '/', // cookie available across all paths
+            // domain: process.env.COOKIE_DOMAIN || undefined // uncomment and set if needed
         };
 
         // Set the token in cookie

@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 // Import schemas
-import vendorSchema from '../models/vendor.model.js';
+import vendorSchema from 'models/vendorUser.model.js';
 import clientSchema from '../models/clientEnquery.model.js';
 import userSchema from '../models/user.model.js';
 import quoteSchema from '../models/quote.model.js';

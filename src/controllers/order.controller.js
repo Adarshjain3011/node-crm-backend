@@ -13,20 +13,6 @@ const createNewOrder = async ({ quoteId, clientId }) => {
 
     try {
 
-        const { id } = req.user;
-
-        if (!id) {
-            return responseHandler(res, 401, false, "User is not authorized", null);
-        }
-
-        const existingUser = await checkUserExists(id);
-
-        if (!existingUser) {
-
-            return responseHandler(res, 400, false, "User not found", null);
-
-        }
-
         // Validate input
         if (!quoteId || !clientId) {
             throw new Error("Quote ID and Client ID are required");

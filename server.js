@@ -17,6 +17,7 @@ import orderRoutes from "./src/routes/order.route.js";
 import dbConnect from "./src/config/db.config.js";
 
 // Load environment variables
+
 dotenv.config();
 
 const app = express();

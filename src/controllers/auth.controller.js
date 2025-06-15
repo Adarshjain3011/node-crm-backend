@@ -1,4 +1,3 @@
-
 import responseHandler from "../utils/responseHandler.js";
 
 import bcrypt from "bcryptjs";
@@ -61,17 +60,30 @@ export const login = async (req, res) => {
 
         })
 
-        // now we have to set the token in the cookie 
-
-        res.cookie("token", token, {
+        // Set cookie options based on environment
+        const cookieOptions = {
             maxAge: 24 * 60 * 60 * 1000, // 1 day
             httpOnly: true,
-            sameSite: "lax", // 👈 This is better for localhost. Don't use "none" without secure.
-            secure: false,   // 👈 false in localhost, true in production with HTTPS
-        });
+            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            secure: process.env.NODE_ENV === 'production', // true in production, false in development
+            path: '/', // Ensure cookie is available across all paths
+            // domain: process.env.COOKIE_DOMAIN || undefined // Set domain in production
+        };
 
+        // Set the token in cookie
+        res.cookie("token", token, cookieOptions);
 
-        return responseHandler(res, 200, true, "User logged in successfully", isUserExists);
+        // Remove sensitive data before sending response
+        const userResponse = {
+            _id: isUserExists._id,
+            name: isUserExists.name,
+            email: isUserExists.email,
+            role: isUserExists.role,
+            createdAt: isUserExists.createdAt,
+            updatedAt: isUserExists.updatedAt
+        };
+
+        return responseHandler(res, 200, true, "User logged in successfully", userResponse);
 
 
     } catch (error) {

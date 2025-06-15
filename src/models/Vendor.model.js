@@ -26,6 +26,5 @@ const vendorSchema = new mongoose.Schema({
     timestamps: true
 });
 
-const Vendor = mongoose.model('Vendor', vendorSchema);
-export default Vendor;
+export default vendorSchema;
 

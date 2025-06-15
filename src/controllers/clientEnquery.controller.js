@@ -1,5 +1,5 @@
 import responseHandler from "../utils/responseHandler.js";
-import { Vendor, Client, User } from "../models/index.js";
+import { Vendor, Client, User } from "../config/models.js";
 import { checkUserExists } from "../utils/helper.js";
 
 // create new enquery 
@@ -202,7 +202,7 @@ const deleteVendorAssignment = async (req, res) => {
             return responseHandler(res, 400, false, "Enquiry ID and Vendor ID are required");
         }
 
-        const enquiry = await ClientEnquery.findById(enqueryId);
+        const enquiry = await Client.findById(enqueryId);
         if (!enquiry) return responseHandler(res, 400, false, "enquery id is required")
 
         const vendor = await Vendor.findById(vendorId);
@@ -251,7 +251,7 @@ const addProductToVendorAssignment = async (req, res) => {
             return responseHandler(res, 400, false, "Enquiry ID and Vendor ID are required");
         }
 
-        const enquiry = await ClientEnquery.findById(enqueryId);
+        const enquiry = await Client.findById(enqueryId);
         if (!enquiry) return responseHandler(res, 400, false, "enquery id is required")
 
         const vendor = await Vendor.findById(vendorId);
@@ -311,7 +311,7 @@ const updateVendorAssignment = async (req, res) => {
             return responseHandler(res, 400, false, "Enquiry ID and Vendor ID are required");
         }
 
-        const enquiry = await ClientEnquery.findById(enqueryId);
+        const enquiry = await Client.findById(enqueryId);
         if (!enquiry) return responseHandler(res, 400, false, "enquery id is required")
 
         const vendor = await Vendor.findById(vendorId);

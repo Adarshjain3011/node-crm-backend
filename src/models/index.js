@@ -1,11 +1,12 @@
 import mongoose from 'mongoose';
 
-import Vendor from './vendor.model.js';
-import Client from './clientEnquery.model.js';
-import User from './user.model.js';
-import Quote from './quote.model.js';
-import Order from './order.model.js';
-import Invoice from './invoice.model.js';
+// Import all models
+import Vendor from '/src/models/vendor.model.js';
+import Client from '/src/models/clientEnquery.model.js';
+import User from '/src/models/user.model.js';
+import Quote from '/src/models/quote.model.js';
+import Order from '/src/models/order.model.js';
+import Invoice from '/src/models/invoice.model.js';
 
 // Re-export all models
 export {

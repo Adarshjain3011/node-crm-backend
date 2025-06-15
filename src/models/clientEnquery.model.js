@@ -77,5 +77,4 @@ clientSchema.pre('save', function (next) {
   next();
 });
 
-const Client = mongoose.model("Client", clientSchema);
-export default Client;
+export default clientSchema;

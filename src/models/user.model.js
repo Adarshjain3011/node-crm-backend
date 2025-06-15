@@ -1,5 +1,3 @@
-
-
 import mongoose from "mongoose";
 
 import { user_role } from "../utils/data.js";
@@ -19,8 +17,6 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const User = mongoose.model('User', userSchema);
-
-export default User;
+export default userSchema;
 
 

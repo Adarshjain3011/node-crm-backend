@@ -25,6 +25,8 @@ const createNewQuery = async (req, res) => {
 
         }
 
+        // hdio
+
         const newQuery = new Client({
             name,
             companyName,

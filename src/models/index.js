@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 
-// Import all models
 import Vendor from './vendor.model.js';
 import Client from './clientEnquery.model.js';
 import User from './user.model.js';

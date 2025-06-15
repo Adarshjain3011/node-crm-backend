@@ -6,7 +6,11 @@
         "use": "@vercel/node",
         "config": {
           "nodeVersion": "18.x",
-          "includeFiles": ["src/**/*"]
+          "includeFiles": [
+            "src/**/*",
+            "package.json",
+            "package-lock.json"
+          ]
         }
       }
     ],

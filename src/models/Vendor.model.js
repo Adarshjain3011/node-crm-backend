@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 
 const vendorSchema = new mongoose.Schema({
@@ -23,9 +22,10 @@ const vendorSchema = new mongoose.Schema({
         type: String,
         required: true
     }
-})
+}, {
+    timestamps: true
+});
 
-const Vendor = mongoose.model('Vendor', vendorSchema)
-
+const Vendor = mongoose.model('Vendor', vendorSchema);
 export default Vendor;
 

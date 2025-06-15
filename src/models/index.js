@@ -1,6 +1,20 @@
-export { default as Vendor } from './vendor.model.js';
-export { default as Client } from './clientEnquery.model.js';
-export { default as User } from './user.model.js';
-export { default as Quote } from './quote.model.js';
-export { default as Order } from './order.model.js';
-export { default as Invoice } from './invoice.model.js'; 
+import mongoose from 'mongoose';
+
+// Import all models
+import Vendor from './vendor.model.js';
+import Client from './clientEnquery.model.js';
+import User from './user.model.js';
+import Quote from './quote.model.js';
+import Order from './order.model.js';
+import Invoice from './invoice.model.js';
+
+// Re-export all models
+export {
+    Vendor,
+    Client,
+    User,
+    Quote,
+    Order,
+    Invoice
+}; 
+

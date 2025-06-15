@@ -1,6 +1,6 @@
 
-import User from "../models/user.model.js";
 
+import { User } from "../config/models.js";
 
 export async function checkUserExists(userId) {
 

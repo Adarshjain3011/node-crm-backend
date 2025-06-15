@@ -1,7 +1,7 @@
 import responseHandler from "../utils/responseHandler.js"
 
-import Quote from "../models/quote.model.js";
-import Order from "../models/order.model.js";
+import { Quote, Order } from "../config/models.js";
+
 import { quote_status, user_role, vendor_delivery_status } from "../utils/data.js";
 
 import { checkUserExists } from "../utils/helper.js";

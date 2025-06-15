@@ -1,9 +1,11 @@
-import User from "../models/user.model.js";
-import Client from "../models/clientEnquery.model.js";
+
 
 import bcrypt from "bcryptjs";
 import responseHandler from "../utils/responseHandler.js";
 import { user_role, enquery_status } from "../utils/data.js";
+
+import { Vendor, Client, User } from "../config/models.js";
+
 
 // Utility to check if a user exists
 async function checkUserExists(userId) {

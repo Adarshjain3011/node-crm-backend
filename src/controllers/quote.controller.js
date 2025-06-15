@@ -1,19 +1,9 @@
-import Quote from "../models/quote.model.js";
-
 import responseHandler from "../utils/responseHandler.js";
-
-import Client from "../models/clientEnquery.model.js";
-
 import uploadImage from "../utils/upload.js";
-
 import { quote_status } from "../utils/data.js";
-
-import Order from "../models/order.model.js";
-
+import { Order, Client, Quote } from "../config/models.js";
 import { createNewOrder } from "./order.controller.js";
-
 import { syncOrderWithQuote } from "../utils/orderSync.js";
-
 import { checkUserExists } from "../utils/helper.js";
 
 // create an new quote for the specific enquery 

@@ -247,12 +247,7 @@
 // export { createNewInvoice };
 
 
-
-
-
-import Order from '../models/order.model.js';
-import Invoice from '../models/invoice.model.js';
-import Client from '../models/clientEnquery.model.js';
+import {Order,Invoice,Client} from "../config/models.js";
 
 import { checkUserExists } from '../utils/helper.js';
 import responseHandler from '../utils/responseHandler.js';

@@ -1,10 +1,12 @@
 
-import User from "../models/user.model.js";
 import responseHandler from "../utils/responseHandler.js";
 
 import bcrypt from "bcryptjs";
 
 import jwt from "jsonwebtoken";
+
+import { User } from "../config/models.js";
+
 
 export const login = async (req, res) => {
 

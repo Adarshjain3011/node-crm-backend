@@ -1,10 +1,12 @@
 {
   "name": "b2b-crm-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "build": "echo 'No build step required'"
   },
   "author": "",
   "license": "ISC",

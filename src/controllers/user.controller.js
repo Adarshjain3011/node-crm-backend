@@ -183,11 +183,55 @@ const updateMembersData = async (req, res) => {
 //   }
 // };
 
+
+const deleteUser = async(req,res)=>{
+
+  try{
+
+    const { id } = req.user;
+
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
+    }
+
+    const userExists = await checkUserExists(id);
+    if (!userExists) {
+      return responseHandler(res, 400, false, "User not found", null);
+    }
+
+    const { userId } = req.body;
+
+    if (!userId) {
+      return responseHandler(res, 400, false, "User ID is required to delete a user");
+    }
+
+    const userToDelete = await User.findById(userId);
+    if (!userToDelete) {
+      return responseHandler(res, 400, false, "User does not exist", null);
+    }
+
+    await User.findByIdAndDelete(userId);
+
+    return responseHandler(res, 200, true, "User deleted successfully", null);
+
+  }catch(error){
+
+    console.error("Error deleting user:", error);
+    return responseHandler(res, 500, false, "Failed to delete user", null, error);
+
+  }
+
+}
+
+
+
 export {
   createUser,
   // getAllSalesPerson,
   assignPersonToEnquery,
   getAllMembersData,
   updateMembersData,
+  deleteUser,
+  
 };
 

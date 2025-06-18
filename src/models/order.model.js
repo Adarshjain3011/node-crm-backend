@@ -16,6 +16,7 @@ const vendorAssignmentSchema = new mongoose.Schema({
     deliveryActual: Date,
     status: { type: String, enum: Object.values(vendor_delivery_status), default: vendor_delivery_status.Pending },
     comments: String
+
 });
 
 

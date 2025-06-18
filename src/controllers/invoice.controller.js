@@ -247,12 +247,14 @@
 // export { createNewInvoice };
 
 
-import {Order,Invoice,Client} from "../config/models.js";
+import { Order, Invoice, Client } from "../config/models.js";
 
 import { checkUserExists } from '../utils/helper.js';
 import responseHandler from '../utils/responseHandler.js';
 
 import uploadImage from '../utils/upload.js';
+
+import mongoose from "mongoose";
 
 // import puppeteer from "puppeteer";
 
@@ -475,10 +477,9 @@ const updateInvoiceFormData = async (req, res) => {
 };
 
 
+
 const deleteInvoiceForm = async (req, res) => {
-
   try {
-
     const { id } = req.user;
 
     if (!id) {
@@ -494,36 +495,34 @@ const deleteInvoiceForm = async (req, res) => {
 
     console.log("invoice id is : ", invoiceId);
 
-
-    if (!invoiceId) {
-
-      return responseHandler(res, 400, false, "Invoice ID are requrired", null);
-
+    if (!invoiceId || !mongoose.Types.ObjectId.isValid(invoiceId)) {
+      return responseHandler(res, 400, false, "A valid Invoice ID is required", null);
     }
 
-    // check invoice is exists or not 
+    const validInvoiceId = new mongoose.Types.ObjectId(invoiceId);
 
-    const isInvoiceExists = await Invoice.findByIdAndDelete(invoiceId);
+    // Check if invoice exists and delete it
+    const isInvoiceExists = await Invoice.findByIdAndDelete(validInvoiceId);
+    if (!isInvoiceExists) {
+      return responseHandler(res, 404, false, "Invoice not found", null);
+    }
 
-    console.log("delete invoice data ", isInvoiceExists);
-
-    const isOrderExists = await Order.findOne({ _id: isInvoiceExists.orderId });
-
-    console.log("is order exists data : ", isOrderExists);
-
-    isOrderExists.invoiceId = "";
-
-    await isOrderExists.save();
+    // Now update the corresponding order
+    const isOrderExists = await Order.findById(isInvoiceExists.orderId);
+    if (isOrderExists) {
+      isOrderExists.invoiceId = undefined;
+      await isOrderExists.save();
+    }
 
     return responseHandler(res, 200, true, "Invoice deleted successfully", isInvoiceExists);
-
   } catch (error) {
-
-    console.log("error is : ", error);
+    console.error("error is : ", error);
     return responseHandler(res, 500, false, "Internal server error", null, error);
-
   }
-}
+};
+
+
+
 
 
 const getAllInvoiceForm = async (req, res) => {
@@ -549,7 +548,7 @@ const getAllInvoiceForm = async (req, res) => {
 
     }
 
-    return responseHandler(res, 200, true, "all invoice form data fetched successfully",allInvoiceForm);
+    return responseHandler(res, 200, true, "all invoice form data fetched successfully", allInvoiceForm);
 
   } catch (error) {
 
@@ -876,7 +875,7 @@ const uploadInvoiceExcelAndPdf = async (req, res) => {
       return responseHandler(res, 400, false, "Invoice does not exist", null);
     }
 
-    const uploadedFile = req.files?.excelFile;
+    const uploadedFile = req.files?.file;
     if (!uploadedFile) {
       return responseHandler(res, 400, false, "File is required", null);
     }

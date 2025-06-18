@@ -1,7 +1,7 @@
 import responseHandler from "../utils/responseHandler.js";
 import uploadImage from "../utils/upload.js";
 import { quote_status } from "../utils/data.js";
-import { Order, Client, Quote } from "../config/models.js";
+import { Order, Client, Quote, Invoice } from "../config/models.js";
 import { createNewOrder } from "./order.controller.js";
 import { syncOrderWithQuote } from "../utils/orderSync.js";
 import { checkUserExists } from "../utils/helper.js";
@@ -380,40 +380,74 @@ const updateQuoteStatus = async (req, res) => {
       return responseHandler(res, 404, false, "Quote not found.");
     }
 
-    if (status.toLowerCase() === quote_status.APPROVED.toLowerCase() && quote.status.toLowerCase() !== quote_status.APPROVED.toLowerCase()) {
-
-      const preparedData = {
-        clientId: quote.clientId,
-        quoteVersion: quote.version,
-        quoteId: quote._id,
-        transport: quote.transport,
-        installation: quote.installation,
-        gstAmount: quote.gstPercent,
-        totalPayable: quote.totalAmount,
-        documents: quote.image,
-      };
-
-      const result = await createNewOrder({
-
-        quoteId: quote._id,
-        clientId: quote.clientId,
-
-      });
-
-
-      console.log("Order created:", result);
-
+    // If status is not changing, return early
+    if (quote.status.toLowerCase() === status.toLowerCase()) {
+      return responseHandler(res, 200, true, "Quote status is already " + status, quote);
     }
 
-    // If changing from Finalized to something else, remove the order
-    if (quote.status.toLowerCase() === quote_status.APPROVED.toLowerCase() && status.toLowerCase() == quote_status.DRAFT.toLowerCase()) {
+    // Handle transition to APPROVED status
+    if (status.toLowerCase() === quote_status.APPROVED.toLowerCase() && 
+        quote.status.toLowerCase() !== quote_status.APPROVED.toLowerCase()) {
 
-      console.log("Removing order for quote:", quote);
+      // 1. Find all existing orders for this client
+      const existingOrders = await Order.find({ clientId: quote.clientId });
+      
+      // 2. Delete all invoices associated with these orders
+      const orderIds = existingOrders.map(order => order._id);
+      if (orderIds.length > 0) {
+        await Invoice.deleteMany({ orderId: { $in: orderIds } });
+        console.log(`Deleted ${orderIds.length} invoices for client ${quote.clientId}`);
+      }
 
+      // 3. Delete all existing orders for this client
+      if (existingOrders.length > 0) {
+        await Order.deleteMany({ clientId: quote.clientId });
+        console.log(`Deleted ${existingOrders.length} existing orders for client ${quote.clientId}`);
+      }
 
-      await Order.findOneAndDelete({ finalQuotationId: quote._id });
+      // 4. Update all quotes for this client to DRAFT status (except the current one)
+      await Quote.updateMany(
+        { 
+          clientId: quote.clientId, 
+          _id: { $ne: quote._id },
+          status: { $regex: /approved/i }
+        },
+        { status: quote_status.DRAFT }
+      );
 
+      // 5. Create new order for the approved quote
+      try {
+        const result = await createNewOrder({
+          quoteId: quote._id,
+          clientId: quote.clientId,
+        });
+        console.log("New order created:", result._id);
+      } catch (orderError) {
+        console.error("Error creating order:", orderError);
+        return responseHandler(res, 400, false, "Error creating order: " + orderError.message);
+      }
+    }
 
+    // Handle transition from APPROVED to DRAFT status
+    if (quote.status.toLowerCase() === quote_status.APPROVED.toLowerCase() && 
+        status.toLowerCase() === quote_status.DRAFT.toLowerCase()) {
+
+      console.log("Removing order and invoices for quote:", quote._id);
+
+      // Find the order associated with this quote
+      const associatedOrder = await Order.findOne({ finalQuotationId: quote._id });
+      
+      if (associatedOrder) {
+        // Delete associated invoice if exists
+        if (associatedOrder.invoiceId) {
+          await Invoice.findByIdAndDelete(associatedOrder.invoiceId);
+          console.log(`Deleted invoice ${associatedOrder.invoiceId} for order ${associatedOrder._id}`);
+        }
+        
+        // Delete the order
+        await Order.findByIdAndDelete(associatedOrder._id);
+        console.log(`Deleted order ${associatedOrder._id} for quote ${quote._id}`);
+      }
     }
 
     // Update quote status and timestamp
@@ -421,7 +455,29 @@ const updateQuoteStatus = async (req, res) => {
     quote.updatedAt = new Date();
     await quote.save();
 
-    return responseHandler(res, 200, true, "Quote status updated successfully.", quote);
+    // Sync with order if the quote is approved
+    let updatedOrder = null;
+    if (quote.status.toLowerCase() === quote_status.APPROVED.toLowerCase()) {
+      try {
+        updatedOrder = await syncOrderWithQuote(quote._id, quote);
+      } catch (syncError) {
+        console.error("Error syncing order:", syncError);
+        // Continue with quote update even if order sync fails
+      }
+    }
+
+    const response = {
+      quote,
+      ...(updatedOrder && { order: updatedOrder })
+    };
+
+    return responseHandler(
+      res,
+      200,
+      true,
+      updatedOrder ? "Quote status updated and order synced successfully." : "Quote status updated successfully.",
+      response
+    );
 
   } catch (error) {
     console.error("Error updating quote status:", error);

@@ -30,7 +30,7 @@ app.use(express.urlencoded({ limit: "20mb", extended: true }));
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',') 
-  : ['https://next-crm-frontend.vercel.app'];
+  : ['*'];
 
 app.use(cors({
   origin: function(origin, callback) {

@@ -11,7 +11,9 @@ import {
     // getAllSalesPersonData,
     respondToFollowUps,
     getSpecificEnqueryData,
-    updateFollowUpStatus
+    updateFollowUpStatus,
+    updateEnqueryRequirement,
+
 
 } from "../controllers/clientEnquery.controller.js";
 
@@ -44,6 +46,8 @@ router.get("/get-specific-enquery-data/:enqueryId",authMiddleware,authorizeRoles
 
 
 router.post("/update-follow-up-status",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),updateFollowUpStatus);
+
+router.post("/update-enquery-requirement",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),updateEnqueryRequirement)
 
 export default router;
 

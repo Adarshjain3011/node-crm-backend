@@ -671,6 +671,60 @@ const fetchAllEnqueryAssignedToSpecificSalesPerson = async (req, res) => {
 
 
 
+const updateEnqueryRequirement = async (req, res) => {
+
+    try {
+
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+
+        if (!existingUser) {
+
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
+        const {enqueryId,updatedRequirement}= req.body;
+
+        if(!enqueryId || !updatedRequirement){
+
+            return responseHandler(res, 400, false, "all fields are required "); 
+
+        }
+
+        // check first enqueryId is exists 
+
+        const isEnqueryExists = await Client.findById(enqueryId);
+
+        if(!isEnqueryExists){
+
+            return responseHandler(res, 400, false, "no enquery find with this enquery Id "); 
+
+        }
+
+        // now update enquery requirement 
+
+        isEnqueryExists.requirement = updatedRequirement;
+
+        await isEnqueryExists.save();
+
+        return responseHandler(res,200,true,"requirement Updated successfully ",isEnqueryExists);
+
+
+    } catch (error) {
+
+        console.log("error: ", error);
+
+        return responseHandler(res, 500, false, "error occur while updating enquery requirement", null);
+    }
+}
+
+
+
 
 export {
 
@@ -682,7 +736,8 @@ export {
     deleteVendorAssignment,
     respondToFollowUps,
     getSpecificEnqueryData,
-    updateFollowUpStatus
+    updateFollowUpStatus,
+    updateEnqueryRequirement
 
 }
 

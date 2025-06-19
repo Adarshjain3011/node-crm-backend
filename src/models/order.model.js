@@ -5,6 +5,8 @@ import { vendor_delivery_status } from "../utils/data.js";
 
 import Invoice from "./invoice.model.js";
 
+import { order_status } from "../utils/data.js";
+
 const vendorAssignmentSchema = new mongoose.Schema({
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
     itemRef: String,
@@ -32,16 +34,18 @@ const orderSchema = new mongoose.Schema({
     finalQuotationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quote' },
     vendorAssignments: [vendorAssignmentSchema],
     documents: [String],  // URLs of delivery proofs, receipts etc.
-    invoiceId:{
+    invoiceId: {
 
-        type:mongoose.Schema.Types.ObjectId,
-        ref:"Invoice"
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Invoice"
 
     },
     deliveryStatus: {
         type: String,
-        enum: ['Pending', 'In Production', 'Packing', 'Shipped', 'Delivered'],
-        default: 'Pending'
+        // enum: ['Pending', 'In Production', 'Packing', 'Shipped', 'Delivered'],
+        enum: Object.values(order_status),
+        default: order_status.Pending,
+
     },
     deliverySummary: [
         {
@@ -50,9 +54,16 @@ const orderSchema = new mongoose.Schema({
             remarks: String
         }
     ],
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now }
-});
+
+},
+
+    {
+
+        timestamps: true,
+
+    }
+
+);
 
 orderSchema.pre('save', function (next) {
     this.updatedAt = Date.now();

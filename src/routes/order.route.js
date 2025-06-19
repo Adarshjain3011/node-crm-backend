@@ -1,7 +1,7 @@
 
 import express from "express";
 
-import { getAllOrders,getOrderDetails } from "../controllers/order.controller.js";
+import { getAllOrders,getOrderDetails,updateOrderStatus } from "../controllers/order.controller.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 
@@ -17,7 +17,9 @@ router.get("/get-all-orders",authMiddleware,authorizeRoles(user_role.admin,user_
 
 router.get("/get-order-details/:orderId",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),getOrderDetails);
 
-// router.post("/update-order-status", updateOrderStatus);
+router.post("/update-order-status",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),updateOrderStatus);
+
+
 
 
 export default router;

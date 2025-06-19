@@ -880,8 +880,8 @@ const uploadInvoiceExcelAndPdf = async (req, res) => {
       return responseHandler(res, 400, false, "File is required", null);
     }
 
-    // Ensure tmp directory exists
-    const tmpDir = path.join(__dirname, "../tmp");
+    // Use /tmp on Vercel, local tmp otherwise
+    const tmpDir = process.env.VERCEL ? "/tmp" : path.join(__dirname, "../tmp");
     if (!fs.existsSync(tmpDir)) {
       fs.mkdirSync(tmpDir, { recursive: true });
     }

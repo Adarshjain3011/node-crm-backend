@@ -259,6 +259,7 @@ import mongoose from "mongoose";
 // import puppeteer from "puppeteer";
 
 // Create a new invoice
+
 const createNewInvoice = async (req, res) => {
   try {
     const { id } = req.user;
@@ -307,6 +308,23 @@ const createNewInvoice = async (req, res) => {
       !clientId || !orderId
     ) {
       return responseHandler(res, 400, false, "Missing required fields", null);
+    }
+
+    // check first invoice Number should always be unique 
+
+    const isInvoiceNumberUnique = await Invoice.findOne({
+
+      invoiceNumber: invoiceNumber,
+
+    });
+
+
+    if (isInvoiceNumberUnique) {
+
+
+      return responseHandler(res, 500, false, "invoice number should be unique");
+
+
     }
 
     const isOrderExists = await Order.findById(orderId);

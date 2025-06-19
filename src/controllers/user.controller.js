@@ -218,6 +218,39 @@ const deleteUser = async (req, res) => {
 
 
 
+const uploadUserList = async (req, res) => {
+  try {
+    const { userList } = req.body;
+
+    if (!userList || userList.length === 0) {
+      return responseHandler(res, 400, false, "User list is empty", null);
+    }
+
+    // Hash password "1234" once
+    const defaultPasswordHash = await bcrypt.hash("1234", 10);
+
+    // Prepare the list with passwords
+    const userListWithPasswords = userList.map((user) => ({
+      ...user,
+      password: user.password
+        ? user.password
+        : defaultPasswordHash, // assign default encrypted password if not present
+    }));
+
+    // Insert users in bulk
+    const allUsers = await User.insertMany(userListWithPasswords);
+
+    return responseHandler(res, 201, true, "Users created successfully", allUsers);
+  } catch (error) {
+    console.log("Error is:", error);
+    return responseHandler(res, 500, false, "Internal server error", null);
+  }
+};
+
+
+
+
+
 export {
   createUser,
   // getAllSalesPerson,
@@ -225,6 +258,7 @@ export {
   getAllMembersData,
   updateMembersData,
   deleteUser,
+  uploadUserList
 
 };
 

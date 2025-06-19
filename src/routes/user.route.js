@@ -1,7 +1,7 @@
 
 import express from "express";
 
-import { createUser,assignPersonToEnquery,getAllMembersData, updateMembersData,deleteUser } from "../controllers/user.controller.js";
+import { createUser,assignPersonToEnquery,getAllMembersData, updateMembersData,deleteUser, uploadUserList } from "../controllers/user.controller.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 
@@ -20,6 +20,8 @@ router.get("/get-all-members-data",authMiddleware,authorizeRoles(user_role.admin
 router.post("/update-members-data",authMiddleware,authorizeRoles(user_role.admin),updateMembersData);
 
 router.post("/delete-user",authMiddleware,authorizeRoles(user_role.admin),deleteUser);
+
+router.post("/upload-user-list",uploadUserList);
 
 
 export default router;

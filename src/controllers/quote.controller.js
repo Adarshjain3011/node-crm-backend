@@ -22,7 +22,7 @@ const createNewQuote = async (req, res) => {
     if (!existingUser) {
 
       return responseHandler(res, 400, false, "User not found", null);
-      
+
     }
 
     const rawData = req.body?.data;
@@ -386,12 +386,12 @@ const updateQuoteStatus = async (req, res) => {
     }
 
     // Handle transition to APPROVED status
-    if (status.toLowerCase() === quote_status.APPROVED.toLowerCase() && 
-        quote.status.toLowerCase() !== quote_status.APPROVED.toLowerCase()) {
+    if (status.toLowerCase() === quote_status.APPROVED.toLowerCase() &&
+      quote.status.toLowerCase() !== quote_status.APPROVED.toLowerCase()) {
 
       // 1. Find all existing orders for this client
       const existingOrders = await Order.find({ clientId: quote.clientId });
-      
+
       // 2. Delete all invoices associated with these orders
       const orderIds = existingOrders.map(order => order._id);
       if (orderIds.length > 0) {
@@ -407,8 +407,8 @@ const updateQuoteStatus = async (req, res) => {
 
       // 4. Update all quotes for this client to DRAFT status (except the current one)
       await Quote.updateMany(
-        { 
-          clientId: quote.clientId, 
+        {
+          clientId: quote.clientId,
           _id: { $ne: quote._id },
           status: { $regex: /approved/i }
         },
@@ -429,21 +429,21 @@ const updateQuoteStatus = async (req, res) => {
     }
 
     // Handle transition from APPROVED to DRAFT status
-    if (quote.status.toLowerCase() === quote_status.APPROVED.toLowerCase() && 
-        status.toLowerCase() === quote_status.DRAFT.toLowerCase()) {
+    if (quote.status.toLowerCase() === quote_status.APPROVED.toLowerCase() &&
+      status.toLowerCase() === quote_status.DRAFT.toLowerCase()) {
 
       console.log("Removing order and invoices for quote:", quote._id);
 
       // Find the order associated with this quote
       const associatedOrder = await Order.findOne({ finalQuotationId: quote._id });
-      
+
       if (associatedOrder) {
         // Delete associated invoice if exists
         if (associatedOrder.invoiceId) {
           await Invoice.findByIdAndDelete(associatedOrder.invoiceId);
           console.log(`Deleted invoice ${associatedOrder.invoiceId} for order ${associatedOrder._id}`);
         }
-        
+
         // Delete the order
         await Order.findByIdAndDelete(associatedOrder._id);
         console.log(`Deleted order ${associatedOrder._id} for quote ${quote._id}`);
@@ -492,9 +492,11 @@ const updateQuoteStatus = async (req, res) => {
 
 const addNewVendorToQuote = async (req, res) => {
   try {
-    const { quoteId, itemIndex, vendorData } = req.body;
+    const { quoteId, itemIndex, vendorData, vendorIndex } = req.body;
 
     console.log("Request body for adding vendor:", vendorData);
+
+    console.log("quoteId", itemIndex);
 
     if (!quoteId || itemIndex === undefined || !vendorData || !vendorData.vendorId) {
       return responseHandler(res, 400, false, "Quote ID, itemIndex, and vendor data (with vendorId) are required.");
@@ -508,6 +510,11 @@ const addNewVendorToQuote = async (req, res) => {
     const item = quote.items[itemIndex];
     if (!item) {
       return responseHandler(res, 400, false, "Invalid item index.");
+    }
+
+    // Ensure vendors is always an array
+    if (!Array.isArray(item.vendors)) {
+      item.vendors = [];
     }
 
     // Validate vendor data
@@ -527,7 +534,26 @@ const addNewVendorToQuote = async (req, res) => {
         Object.assign(vendorToUpdate, vendorData);
       }
     } else {
-      item.vendors.push(vendorData);
+
+      console.log("vendor exists naii karta bhai ")
+
+      // this reprsent vendor want to update the existing vendor or want to just replace the vendor 
+
+      if (vendorIndex <= item.vendors.length - 1) {
+
+        console.log("item vendors length ",item.vendors.length)
+
+        item.vendors[vendorIndex] = vendorData;
+
+
+      } else {
+
+        // this will run in case of new vendor 
+
+        item.vendors.push(vendorData);
+
+      }
+
     }
 
     await quote.save();

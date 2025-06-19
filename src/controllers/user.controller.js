@@ -74,7 +74,8 @@ const getAllMembersData = async (req, res) => {
       return responseHandler(res, 400, false, "User not found", null);
     }
 
-    const members = await User.find({ role: { $ne: user_role.admin } }, "-password");
+    // const members = await User.find({ role: { $ne: user_role.admin } }, "-password");
+    const members = await User.find({}, "-password");
     return responseHandler(res, 200, true, "Members fetched successfully", members);
 
   } catch (error) {
@@ -82,6 +83,8 @@ const getAllMembersData = async (req, res) => {
     return responseHandler(res, 500, false, "Something went wrong", null, error);
   }
 };
+
+
 
 // Assign a salesperson to a client inquiry
 const assignPersonToEnquery = async (req, res) => {
@@ -172,21 +175,11 @@ const updateMembersData = async (req, res) => {
   }
 };
 
-// Uncomment if needed later
-// const getAllSalesPerson = async (req, res) => {
-//   try {
-//     const salesPeople = await User.find({ role: user_role.sales }, "-password");
-//     return responseHandler(res, 200, true, "Salespeople fetched successfully", salesPeople);
-//   } catch (error) {
-//     console.error("Error fetching salespeople:", error);
-//     return responseHandler(res, 500, false, "Something went wrong", null, error);
-//   }
-// };
 
 
-const deleteUser = async(req,res)=>{
+const deleteUser = async (req, res) => {
 
-  try{
+  try {
 
     const { id } = req.user;
 
@@ -214,7 +207,7 @@ const deleteUser = async(req,res)=>{
 
     return responseHandler(res, 200, true, "User deleted successfully", null);
 
-  }catch(error){
+  } catch (error) {
 
     console.error("Error deleting user:", error);
     return responseHandler(res, 500, false, "Failed to delete user", null, error);
@@ -232,6 +225,8 @@ export {
   getAllMembersData,
   updateMembersData,
   deleteUser,
-  
+
 };
+
+
 

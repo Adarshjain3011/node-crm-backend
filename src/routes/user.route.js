@@ -25,4 +25,3 @@ router.post("/delete-user",authMiddleware,authorizeRoles(user_role.admin),delete
 export default router;
 
 
-

@@ -709,6 +709,7 @@ const updateEnqueryRequirement = async (req, res) => {
         // now update enquery requirement 
 
         isEnqueryExists.requirement = updatedRequirement;
+        //
 
         await isEnqueryExists.save();
 

@@ -141,7 +141,7 @@ const assignPersonToEnquery = async (req, res) => {
 // Update a member's data
 const updateMembersData = async (req, res) => {
   try {
-    const { name, email, phoneNo, password, role, userId } = req.body;
+    const { name, email, phoneNo, password, role, specialization, userId } = req.body;
 
     const { id } = req.user;
 
@@ -164,6 +164,7 @@ const updateMembersData = async (req, res) => {
     if (role) dataToUpdate.role = role;
     if (phoneNo) dataToUpdate.phoneNo = phoneNo;
     if (password) dataToUpdate.password = bcrypt.hashSync(password, 6);
+    if (specialization) dataToUpdate.specialization = specialization;
 
     const updatedUser = await User.findByIdAndUpdate(userId, dataToUpdate, { new: true });
 
@@ -174,6 +175,52 @@ const updateMembersData = async (req, res) => {
     return responseHandler(res, 500, false, "Failed to update user data", null, error);
   }
 };
+
+const resetPassword = async (req, res) => {
+
+  try {
+
+    const { id } = req.user;
+
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
+    }
+
+    const userExists = await checkUserExists(id);
+
+    if (!userExists) {
+
+      return responseHandler(res, 400, false, "User not found", null);
+
+    }
+
+    const {newPassword,confirmPassword} = req.body;
+
+    if(!newPassword || !confirmPassword){
+
+      return responseHandler(res,500,false,"all fields are required",null);
+
+    }
+
+    // bcrypt the password 
+
+    const hashedPassword = await bcrypt.hash(newPassword,6);
+
+    userExists.password = hashedPassword;
+
+    await userExists.save();
+
+    return responseHandler(res,200,true,"user password updated successfully");
+
+
+  } catch (error) {
+
+    console.log("error is : ", error);
+
+    return responseHandler(res, 500, false, "Something went wrong while reseting the password", null, error);
+
+  }
+}
 
 
 
@@ -258,7 +305,8 @@ export {
   getAllMembersData,
   updateMembersData,
   deleteUser,
-  uploadUserList
+  uploadUserList,
+  resetPassword
 
 };
 

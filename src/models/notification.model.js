@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import { User } from "config/models";
+import { User } from "../config/models.js";
 
 const notificationSchema = new mongoose.Schema({
   title: {
@@ -26,7 +26,7 @@ const notificationSchema = new mongoose.Schema({
   }
 });
 
-const Notification = mongoose.model("Notification", notificationSchema);
+// const Notification = mongoose.model("Notification", notificationSchema);
 
-export default Notification;
+export default notificationSchema;
 

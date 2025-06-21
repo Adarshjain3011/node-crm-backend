@@ -1,24 +1,68 @@
 import responseHandler from "../utils/responseHandler.js";
-import { Vendor, Client, User } from "../config/models.js";
+import { Vendor, Client, User, Notification } from "../config/models.js";
 import { checkUserExists } from "../utils/helper.js";
+
+// import { createNewNotification } from "./notification.controller.js";
+
 
 // create new enquery 
 
 const createNewQuery = async (req, res) => {
-
     try {
 
-        const { name, companyName, phone, email, address, requirement, sourceWebsite, sourcePlatform } = req.body;
+        const { id } = req.user;
 
-        console.log("all required fileds are ", name, companyName, phone, email, address, requirement, sourceWebsite, sourcePlatform);
+        if (!id) {
 
-        if (!name || !companyName || !phone || !email || !address || !requirement || !sourceWebsite || !sourcePlatform) {
-
-            return res.status(400).json({ success: false, message: "Please fill all the fields" });
+            return responseHandler(res, 401, false, "User is not authorized", null);
 
         }
 
-        // hdio
+        const userExists = await checkUserExists(id);
+
+        if (!userExists) {
+
+            return responseHandler(res, 400, false, "User not found", null);
+
+        }
+
+        const {
+            name,
+            companyName,
+            phone,
+            email,
+            address,
+            requirement,
+            sourceWebsite,
+            sourcePlatform
+        } = req.body;
+
+        console.log(
+            "All required fields are:",
+            name,
+            companyName,
+            phone,
+            email,
+            address,
+            requirement,
+            sourceWebsite,
+            sourcePlatform
+        );
+
+        if (
+            !name ||
+            !companyName ||
+            !phone ||
+            !email ||
+            !address ||
+            !requirement ||
+            !sourceWebsite ||
+            !sourcePlatform
+        ) {
+            return res
+                .status(400)
+                .json({ success: false, message: "Please fill all the fields" });
+        }
 
         const newQuery = new Client({
             name,
@@ -31,18 +75,45 @@ const createNewQuery = async (req, res) => {
             sourcePlatform
         });
 
+        // Save the query to DB
         await newQuery.save();
+
+        try {
+            // Prepare meaningful notification
+            const title = "New Client Inquiry Received";
+            const message = `A new inquiry has been submitted by ${name} from ${companyName} regarding "${requirement}".`;
+
+            // You can pass recipientId and createdBy dynamically based on your auth system
+            await Notification.create({
+
+                title: title,
+                message: message,
+                recipientId: userExists._id,
+
+            })
+
+        } catch (error) {
+            console.log("Notification error:", error);
+            return responseHandler(
+                res,
+                400,
+                false,
+                "Error occurred while creating the notification",
+                null,
+                error
+            );
+        }
 
         return responseHandler(res, 201, true, "Query created successfully", newQuery);
 
     } catch (error) {
-
-        console.log("error is ", error);
-
+        console.log("Query error:", error);
         return responseHandler(res, 500, false, "Something went wrong", null, error);
-
     }
-}
+};
+
+
+
 
 
 
@@ -163,10 +234,25 @@ const assignVendorToEnquiry = async (req, res) => {
             vendorId,
             deliveryEstimate,
             deliveryStatus: deliveryStatus || 'Pending',
-            products: values(newProduct).length > 0 ? [newProduct] : []
+            products: Object.values(newProduct).length > 0 ? [newProduct] : []
         });
 
         await enquiry.save();
+
+        // Create notification for vendor assignment
+        try {
+            const title = "Vendor Assigned to Inquiry";
+            const message = `Vendor ${vendor.name} has been assigned to inquiry from ${enquiry.name} (${enquiry.companyName}).`;
+
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: enquiry.assignedTo || existingUser._id,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
         return responseHandler(res, 200, true, "Vendor assigned successfully", enquiry);
 
     } catch (err) {
@@ -175,6 +261,8 @@ const assignVendorToEnquiry = async (req, res) => {
 
     }
 };
+
+
 
 
 
@@ -225,6 +313,24 @@ const deleteVendorAssignment = async (req, res) => {
         );
 
         await enquiry.save();
+
+        // Create notification for vendor removal
+        try {
+            const title = "Vendor Removed from Inquiry";
+            const message = `Vendor ${vendor.name} has been removed from inquiry ${enquiry.name} (${enquiry.companyName}) by ${existingUser.name}.`;
+
+            // Notify the assigned sales person or admin
+            const recipientId = enquiry.assignedTo || existingUser._id;
+            
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: recipientId,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
         return responseHandler(res, 200, true, "Vendor removed successfully", enquiry);
 
 
@@ -244,11 +350,22 @@ const addProductToVendorAssignment = async (req, res) => {
 
     try {
 
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
         const { enqueryId, vendorId, deliveryEstimate, deliveryStatus, productDescription, estimatedCost, advancePaid } = req.body;
 
-        if (!enqueryId || !vendorId || !productName) {
+        if (!enqueryId || !vendorId || !productDescription) {
 
-            return responseHandler(res, 400, false, "Enquiry ID and Vendor ID are required");
+            return responseHandler(res, 400, false, "Enquiry ID, Vendor ID and Product Description are required");
         }
 
         const enquiry = await Client.findById(enqueryId);
@@ -278,6 +395,24 @@ const addProductToVendorAssignment = async (req, res) => {
         alreadyExists.products.push(newProduct);
 
         await enquiry.save();
+
+        // Create notification for new product addition
+        try {
+            const title = "New Product Added to Vendor";
+            const message = `A new product "${productDescription}" has been added to vendor ${vendor.name} for inquiry from ${enquiry.name} (${enquiry.companyName}) by ${existingUser.name}.`;
+
+            // Notify the assigned sales person or admin
+            const recipientId = enquiry.assignedTo || existingUser._id;
+            
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: recipientId,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
         return responseHandler(res, 200, true, "Product assign to the  vendor successfully", enquiry);
 
 
@@ -285,7 +420,7 @@ const addProductToVendorAssignment = async (req, res) => {
 
         console.log(error);
 
-        return responseHandler(res, 500, false, "Something went wrong", null, err)
+        return responseHandler(res, 500, false, "Something went wrong", null, error)
     }
 }
 
@@ -297,18 +432,23 @@ const updateVendorAssignment = async (req, res) => {
 
     try {
 
-        const { enqueryId, vendorId, deliveryEstimate, deliveryStatus, productDescription, estimatedCost, advancePaid } = req.body;
+        const { id } = req.user;
 
-        if (!enqueryId || !vendorId || !productName) {
-
-            return responseHandler(res, 400, false, "Enquiry ID and Vendor ID are required");
-
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
         }
 
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
+        const { enqueryId, vendorId, deliveryEstimate, deliveryStatus, productDescription, estimatedCost, advancePaid } = req.body;
 
         if (!enqueryId || !vendorId) {
 
             return responseHandler(res, 400, false, "Enquiry ID and Vendor ID are required");
+
         }
 
         const enquiry = await Client.findById(enqueryId);
@@ -351,6 +491,24 @@ const updateVendorAssignment = async (req, res) => {
 
 
         await enquiry.save();
+
+        // Create notification for vendor assignment update
+        try {
+            const title = "Vendor Assignment Updated";
+            const message = `Vendor assignment details for ${vendor.name} on inquiry from ${enquiry.name} (${enquiry.companyName}) have been updated by ${existingUser.name}.`;
+
+            // Notify the assigned sales person or admin
+            const recipientId = enquiry.assignedTo || existingUser._id;
+            
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: recipientId,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
         return responseHandler(res, 200, true, "Vendor assignment updated successfully", enquiry);
 
 
@@ -409,6 +567,24 @@ const addNewFollowups = async (req, res) => {
         });
 
         await enquiry.save();
+
+        // Create notification for new follow-up
+        try {
+            const title = "New Follow-up Added";
+            const message = `A new follow-up has been added to inquiry from ${enquiry.name} (${enquiry.companyName}) by ${existingUser.name}.`;
+
+            // Notify the assigned sales person or admin
+            const recipientId = enquiry.assignedTo || existingUser._id;
+            
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: recipientId,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
         return responseHandler(res, 200, true, "Follow up added successfully", enquiry);
 
 
@@ -476,6 +652,23 @@ const respondToFollowUps = async (req, res) => {
 
         await client.save();
 
+        // Create notification for follow-up response
+        try {
+            const title = "Follow-up Response Added";
+            const message = `A response has been added to follow-up for inquiry from ${client.name} (${client.companyName}) by ${existingUser.name}.`;
+
+            // Notify the user who created the follow-up
+            const recipientId = followUp.noteAddByUser || client.assignedTo || existingUser._id;
+            
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: recipientId,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
         const populatedFollowUpData = await Client.findById(enqueryId).populate("assignedTo", "name")
             .populate("assignedBy", "name")
             .populate("followUps.noteAddByUser", "name") // ✅ Populating the user who added the note
@@ -542,6 +735,24 @@ const updateFollowUpStatus = async (req, res) => {
         followUp.done = status;
 
         await enquiry.save();
+
+        // Create notification for follow-up status update
+        try {
+            const statusText = status ? "completed" : "reopened";
+            const title = "Follow-up Status Updated";
+            const message = `Follow-up for inquiry from ${enquiry.name} (${enquiry.companyName}) has been marked as ${statusText} by ${existingUser.name}.`;
+
+            // Notify the user who created the follow-up
+            const recipientId = followUp.noteAddByUser || enquiry.assignedTo || existingUser._id;
+            
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: recipientId,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
 
         return responseHandler(res, 200, true, "Follow-up status updated successfully", enquiry);
 
@@ -688,11 +899,11 @@ const updateEnqueryRequirement = async (req, res) => {
             return responseHandler(res, 400, false, "User not found", null);
         }
 
-        const {enqueryId,updatedRequirement}= req.body;
+        const { enqueryId, updatedRequirement } = req.body;
 
-        if(!enqueryId || !updatedRequirement){
+        if (!enqueryId || !updatedRequirement) {
 
-            return responseHandler(res, 400, false, "all fields are required "); 
+            return responseHandler(res, 400, false, "all fields are required ");
 
         }
 
@@ -700,20 +911,36 @@ const updateEnqueryRequirement = async (req, res) => {
 
         const isEnqueryExists = await Client.findById(enqueryId);
 
-        if(!isEnqueryExists){
+        if (!isEnqueryExists) {
 
-            return responseHandler(res, 400, false, "no enquery find with this enquery Id "); 
+            return responseHandler(res, 400, false, "no enquery find with this enquery Id ");
 
         }
 
         // now update enquery requirement 
 
         isEnqueryExists.requirement = updatedRequirement;
-        //
 
         await isEnqueryExists.save();
 
-        return responseHandler(res,200,true,"requirement Updated successfully ",isEnqueryExists);
+        // Create notification for requirement update
+        try {
+            const title = "Inquiry Requirement Updated";
+            const message = `The requirement for inquiry from ${isEnqueryExists.name} (${isEnqueryExists.companyName}) has been updated by ${existingUser.name}.`;
+
+            // Notify the assigned sales person or admin
+            const recipientId = isEnqueryExists.assignedTo || existingUser._id;
+            
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: recipientId,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
+        return responseHandler(res, 200, true, "requirement Updated successfully ", isEnqueryExists);
 
 
     } catch (error) {
@@ -721,11 +948,69 @@ const updateEnqueryRequirement = async (req, res) => {
         console.log("error: ", error);
 
         return responseHandler(res, 500, false, "error occur while updating enquery requirement", null);
+
     }
 }
 
+// assign sales person to inquiry
+const assignSalesPersonToInquiry = async (req, res) => {
+    try {
+        const { id } = req.user;
 
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
 
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
+        const { enqueryId, salesPersonId } = req.body;
+
+        if (!enqueryId || !salesPersonId) {
+            return responseHandler(res, 400, false, "Enquiry ID and Sales Person ID are required");
+        }
+
+        const enquiry = await Client.findById(enqueryId);
+        if (!enquiry) {
+            return responseHandler(res, 404, false, "Inquiry not found");
+        }
+
+        const salesPerson = await User.findById(salesPersonId);
+        if (!salesPerson) {
+            return responseHandler(res, 404, false, "Sales person not found");
+        }
+
+        // Update the assignment
+        enquiry.assignedTo = salesPersonId;
+        enquiry.assignedBy = existingUser._id;
+        enquiry.assignmentDate = new Date();
+        enquiry.status = "Assigned";
+
+        await enquiry.save();
+
+        // Create notification for sales person assignment
+        try {
+            const title = "Inquiry Assigned to You";
+            const message = `You have been assigned to inquiry from ${enquiry.name} (${enquiry.companyName}) by ${existingUser.name}.`;
+
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: salesPersonId,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
+        return responseHandler(res, 200, true, "Sales person assigned successfully", enquiry);
+
+    } catch (error) {
+        console.error("Error assigning sales person:", error);
+        return responseHandler(res, 500, false, "Something went wrong", null, error);
+    }
+};
 
 export {
 
@@ -738,7 +1023,8 @@ export {
     respondToFollowUps,
     getSpecificEnqueryData,
     updateFollowUpStatus,
-    updateEnqueryRequirement
+    updateEnqueryRequirement,
+    assignSalesPersonToInquiry
 
 }
 

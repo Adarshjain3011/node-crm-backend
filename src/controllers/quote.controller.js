@@ -1,7 +1,7 @@
 import responseHandler from "../utils/responseHandler.js";
 import uploadImage from "../utils/upload.js";
 import { quote_status } from "../utils/data.js";
-import { Order, Client, Quote, Invoice } from "../config/models.js";
+import { Order, Client, Quote, Invoice, Notification } from "../config/models.js";
 import { createNewOrder } from "./order.controller.js";
 import { syncOrderWithQuote } from "../utils/orderSync.js";
 import { checkUserExists } from "../utils/helper.js";
@@ -136,6 +136,21 @@ const createNewQuote = async (req, res) => {
     });
 
     await newQuote.save();
+
+    // Create notification for new quote creation
+    try {
+      const title = "New Quote Created";
+      const message = `A new quote (v${version}) has been created for ${clientExists.name} with total amount ₹${finalTotal} by ${existingUser.name}.`;
+
+      // Notify admin or relevant users
+      await Notification.create({
+        title: title,
+        message: message,
+        recipientId: existingUser._id,
+      });
+    } catch (notificationError) {
+      console.log("Notification error:", notificationError);
+    }
 
     return responseHandler(res, 200, true, "Quote created successfully.", newQuote);
   } catch (error) {
@@ -329,6 +344,27 @@ const updateRootFieldsAndItemAddDeleteAndUpdate = async (req, res) => {
     // Save the updated quote
     await quote.save();
 
+    // Create notification for quote update
+    try {
+      const { id } = req.user;
+      if (id) {
+        const existingUser = await checkUserExists(id);
+        if (existingUser) {
+          const title = "Quote Updated";
+          const message = `Quote details have been updated by ${existingUser.name}.`;
+
+          // Notify admin or relevant users
+          await Notification.create({
+            title: title,
+            message: message,
+            recipientId: existingUser._id,
+          });
+        }
+      }
+    } catch (notificationError) {
+      console.log("Notification error:", notificationError);
+    }
+
     // Sync with order if the quote is approved
     let updatedOrder = null;
     if (quote.status.toLowerCase() === quote_status.APPROVED.toLowerCase()) {
@@ -455,6 +491,27 @@ const updateQuoteStatus = async (req, res) => {
     quote.updatedAt = new Date();
     await quote.save();
 
+    // Create notification for quote status update
+    try {
+      const { id } = req.user;
+      if (id) {
+        const existingUser = await checkUserExists(id);
+        if (existingUser) {
+          const title = "Quote Status Updated";
+          const message = `Quote status has been updated to "${status}" by ${existingUser.name}.`;
+
+          // Notify admin or relevant users
+          await Notification.create({
+            title: title,
+            message: message,
+            recipientId: existingUser._id,
+          });
+        }
+      }
+    } catch (notificationError) {
+      console.log("Notification error:", notificationError);
+    }
+
     // Sync with order if the quote is approved
     let updatedOrder = null;
     if (quote.status.toLowerCase() === quote_status.APPROVED.toLowerCase()) {
@@ -558,6 +615,27 @@ const addNewVendorToQuote = async (req, res) => {
 
     await quote.save();
 
+    // Create notification for vendor addition
+    try {
+      const { id } = req.user;
+      if (id) {
+        const existingUser = await checkUserExists(id);
+        if (existingUser) {
+          const title = "Vendor Added to Quote";
+          const message = `A new vendor has been added to quote item by ${existingUser.name}.`;
+
+          // Notify admin or relevant users
+          await Notification.create({
+            title: title,
+            message: message,
+            recipientId: existingUser._id,
+          });
+        }
+      }
+    } catch (notificationError) {
+      console.log("Notification error:", notificationError);
+    }
+
     // Sync with order if needed
     const updatedOrder = await handleOrderSync(quote);
 
@@ -617,6 +695,27 @@ const removeVendorAtQuotes = async (req, res) => {
 
     await quote.save();
 
+    // Create notification for vendor removal
+    try {
+      const { id } = req.user;
+      if (id) {
+        const existingUser = await checkUserExists(id);
+        if (existingUser) {
+          const title = "Vendor Removed from Quote";
+          const message = `A vendor has been removed from quote item by ${existingUser.name}.`;
+
+          // Notify admin or relevant users
+          await Notification.create({
+            title: title,
+            message: message,
+            recipientId: existingUser._id,
+          });
+        }
+      }
+    } catch (notificationError) {
+      console.log("Notification error:", notificationError);
+    }
+
     return responseHandler(res, 200, true, "Vendor removed from quote item successfully.", quote);
 
 
@@ -664,6 +763,27 @@ const updateQuoteItemDetails = async (req, res) => {
     quote.updatedAt = new Date();
 
     await quote.save();
+
+    // Create notification for quote item update
+    try {
+      const { id } = req.user;
+      if (id) {
+        const existingUser = await checkUserExists(id);
+        if (existingUser) {
+          const title = "Quote Item Updated";
+          const message = `Quote item details have been updated by ${existingUser.name}.`;
+
+          // Notify admin or relevant users
+          await Notification.create({
+            title: title,
+            message: message,
+            recipientId: existingUser._id,
+          });
+        }
+      }
+    } catch (notificationError) {
+      console.log("Notification error:", notificationError);
+    }
 
     return responseHandler(res, 200, true, "Quote item updated successfully.", quote);
   } catch (error) {

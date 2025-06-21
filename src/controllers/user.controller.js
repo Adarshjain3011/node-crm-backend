@@ -6,6 +6,7 @@ import { user_role, enquery_status } from "../utils/data.js";
 
 import { Vendor, Client, User } from "../config/models.js";
 
+import { Notification } from "../config/models.js";
 
 // Utility to check if a user exists
 async function checkUserExists(userId) {
@@ -87,6 +88,7 @@ const getAllMembersData = async (req, res) => {
 
 
 // Assign a salesperson to a client inquiry
+
 const assignPersonToEnquery = async (req, res) => {
   try {
 
@@ -130,13 +132,40 @@ const assignPersonToEnquery = async (req, res) => {
       { new: true }
     );
 
+    // now here i have to add notification for assigning the salesPerson 
+
+    try {
+      const notificationTitle = "New Inquiry Assigned";
+      const notificationMessage = `You have been assigned a new inquiry from ${enquery.companyName} regarding "${enquery.requirement}" by ${userExists.name}.`;
+
+      const data = await Notification.create({
+
+        title: notificationTitle,
+        message: notificationMessage,
+        recipientId: salesPersonId,
+        createdBy: userExists._id,
+
+      })
+
+      console.log("new notification data is : ",data);
+
+    } catch (error) {
+      console.error("Notification error:", error);
+      // Optional: don't block the flow even if notification fails
+    }
+
+
     return responseHandler(res, 200, true, "Salesperson assigned successfully", updatedEnquery);
 
   } catch (error) {
+
     console.error("Error assigning salesperson:", error);
     return responseHandler(res, 500, false, "Something went wrong", null, error);
+
   }
 };
+
+
 
 // Update a member's data
 const updateMembersData = async (req, res) => {
@@ -194,23 +223,23 @@ const resetPassword = async (req, res) => {
 
     }
 
-    const {newPassword,confirmPassword} = req.body;
+    const { newPassword, confirmPassword } = req.body;
 
-    if(!newPassword || !confirmPassword){
+    if (!newPassword || !confirmPassword) {
 
-      return responseHandler(res,500,false,"all fields are required",null);
+      return responseHandler(res, 500, false, "all fields are required", null);
 
     }
 
     // bcrypt the password 
 
-    const hashedPassword = await bcrypt.hash(newPassword,6);
+    const hashedPassword = await bcrypt.hash(newPassword, 6);
 
     userExists.password = hashedPassword;
 
     await userExists.save();
 
-    return responseHandler(res,200,true,"user password updated successfully");
+    return responseHandler(res, 200, true, "user password updated successfully");
 
 
   } catch (error) {

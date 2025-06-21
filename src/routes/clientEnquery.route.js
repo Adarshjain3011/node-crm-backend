@@ -28,7 +28,7 @@ const router = express.Router();
 
 // it can be created by anyone 
 
-router.post("/create-enquery",createNewQuery);
+router.post("/create-enquery",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),createNewQuery);
 
 router.get("/get-all-enquery",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),getAllEnquery);
 

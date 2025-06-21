@@ -1,6 +1,6 @@
 import responseHandler from "../utils/responseHandler.js"
 
-import { Quote, Order } from "../config/models.js";
+import { Quote, Order, Notification } from "../config/models.js";
 
 import { quote_status, user_role, vendor_delivery_status } from "../utils/data.js";
 
@@ -8,7 +8,7 @@ import { checkUserExists } from "../utils/helper.js";
 
 // create new order 
 
-const createNewOrder = async ({ quoteId, clientId }) => {
+const createNewOrder = async ({ quoteId, clientId, userId }) => {
 
 
     try {
@@ -76,6 +76,25 @@ const createNewOrder = async ({ quoteId, clientId }) => {
         // Update quote with order reference
         quote.orderId = savedOrder._id;
         await quote.save();
+
+        // Create notification for new order creation
+        if (userId) {
+            try {
+                const userExists = await checkUserExists(userId);
+                if (userExists) {
+                    const title = "New Order Created";
+                    const message = `A new order has been created for ${quote.clientId?.name || 'Client'} with total value ₹${quote.totalAmount} by ${userExists.name}.`;
+
+                    await Notification.create({
+                        title: title,
+                        message: message,
+                        recipientId: userId,
+                    });
+                }
+            } catch (notificationError) {
+                console.log("Notification error:", notificationError);
+            }
+        }
 
         return savedOrder;
     } catch (error) {
@@ -171,6 +190,22 @@ const updateOrderStatus = async (req, res) => {
         order.updatedAt = new Date();
 
         await order.save();
+
+        // Create notification for order status update
+        try {
+            const title = "Order Status Updated";
+            const message = `Order status has been updated to "${status}" by ${existingUser.name}.${remarks ? ` Remarks: ${remarks}` : ''}`;
+
+            // Notify admin or relevant users
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: existingUser._id,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
         return responseHandler(res, 200, true, "Order status updated successfully", order);
     } catch (error) {
         console.error("Error updating order status:", error);
@@ -232,12 +267,141 @@ const getAllOrders = async (req, res) => {
     }
 };
 
+// Update vendor assignment status
+const updateVendorAssignmentStatus = async (req, res) => {
+    try {
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
+        const { orderId, vendorId, status, remarks } = req.body;
+
+        if (!orderId || !vendorId || !status) {
+            return responseHandler(res, 400, false, "Order ID, Vendor ID, and status are required");
+        }
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return responseHandler(res, 404, false, "Order not found");
+        }
+
+        // Find and update the vendor assignment
+        const vendorAssignment = order.vendorAssignments.find(
+            va => va.vendorId.toString() === vendorId
+        );
+
+        if (!vendorAssignment) {
+            return responseHandler(res, 404, false, "Vendor assignment not found");
+        }
+
+        vendorAssignment.status = status;
+        if (remarks) {
+            vendorAssignment.remarks = remarks;
+        }
+        vendorAssignment.updatedAt = new Date();
+
+        await order.save();
+
+        // Create notification for vendor assignment status update
+        try {
+            const title = "Vendor Assignment Status Updated";
+            const message = `Vendor assignment status has been updated to "${status}" by ${existingUser.name}.${remarks ? ` Remarks: ${remarks}` : ''}`;
+
+            // Notify admin or relevant users
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: existingUser._id,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
+        return responseHandler(res, 200, true, "Vendor assignment status updated successfully", order);
+
+    } catch (error) {
+        console.error("Error updating vendor assignment status:", error);
+        return responseHandler(res, 500, false, "Error updating vendor assignment status", null, error.message);
+    }
+};
+
+// Update order delivery details
+const updateOrderDeliveryDetails = async (req, res) => {
+    try {
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
+        const { orderId, deliveryDate, deliveryAddress, deliveryNotes, trackingNumber } = req.body;
+
+        if (!orderId) {
+            return responseHandler(res, 400, false, "Order ID is required");
+        }
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return responseHandler(res, 404, false, "Order not found");
+        }
+
+        // Update delivery details
+        if (deliveryDate) order.deliveryDate = deliveryDate;
+        if (deliveryAddress) order.deliveryAddress = deliveryAddress;
+        if (trackingNumber) order.trackingNumber = trackingNumber;
+        
+        if (deliveryNotes) {
+            order.deliverySummary.push({
+                remarks: deliveryNotes,
+                deliveredOn: new Date()
+            });
+        }
+
+        order.updatedAt = new Date();
+        await order.save();
+
+        // Create notification for delivery details update
+        try {
+            const title = "Order Delivery Details Updated";
+            const message = `Delivery details for order have been updated by ${existingUser.name}.${deliveryNotes ? ` Notes: ${deliveryNotes}` : ''}`;
+
+            // Notify admin or relevant users
+            await Notification.create({
+                title: title,
+                message: message,
+                recipientId: existingUser._id,
+            });
+        } catch (notificationError) {
+            console.log("Notification error:", notificationError);
+        }
+
+        return responseHandler(res, 200, true, "Order delivery details updated successfully", order);
+
+    } catch (error) {
+        console.error("Error updating order delivery details:", error);
+        return responseHandler(res, 500, false, "Error updating order delivery details", null, error.message);
+    }
+};
 
 export {
     createNewOrder,
     getOrderDetails,
     updateOrderStatus,
-    getAllOrders
+    getAllOrders,
+    updateVendorAssignmentStatus,
+    updateOrderDeliveryDetails
 };
 
 

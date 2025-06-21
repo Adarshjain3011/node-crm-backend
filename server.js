@@ -10,6 +10,7 @@ import userRoutes from "./src/routes/user.route.js";
 import quoteRoutes from "./src/routes/quote.route.js";
 import authRoutes from "./src/routes/auth.route.js";
 import invoiceRoutes from "./src/routes/invoice.route.js";
+import notificationRoutes from "./src/routes/notification.route.js"
 
 import orderRoutes from "./src/routes/order.route.js";
 
@@ -90,6 +91,8 @@ app.use("/api", authRoutes);
 app.use("/api", invoiceRoutes);
 
 app.use("/api", orderRoutes);
+
+app.use("/api",notificationRoutes);
 
 
 

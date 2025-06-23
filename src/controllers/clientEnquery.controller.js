@@ -1,8 +1,7 @@
 import responseHandler from "../utils/responseHandler.js";
-import { Vendor, Client, User, Notification } from "../config/models.js";
+import { Vendor, Client, User, Notification, Order, Invoice, Quote } from "../config/models.js";
 import { checkUserExists } from "../utils/helper.js";
 
-// import { createNewNotification } from "./notification.controller.js";
 
 
 // create new enquery 
@@ -321,7 +320,7 @@ const deleteVendorAssignment = async (req, res) => {
 
             // Notify the assigned sales person or admin
             const recipientId = enquiry.assignedTo || existingUser._id;
-            
+
             await Notification.create({
                 title: title,
                 message: message,
@@ -403,7 +402,7 @@ const addProductToVendorAssignment = async (req, res) => {
 
             // Notify the assigned sales person or admin
             const recipientId = enquiry.assignedTo || existingUser._id;
-            
+
             await Notification.create({
                 title: title,
                 message: message,
@@ -499,7 +498,7 @@ const updateVendorAssignment = async (req, res) => {
 
             // Notify the assigned sales person or admin
             const recipientId = enquiry.assignedTo || existingUser._id;
-            
+
             await Notification.create({
                 title: title,
                 message: message,
@@ -575,7 +574,7 @@ const addNewFollowups = async (req, res) => {
 
             // Notify the assigned sales person or admin
             const recipientId = enquiry.assignedTo || existingUser._id;
-            
+
             await Notification.create({
                 title: title,
                 message: message,
@@ -659,7 +658,7 @@ const respondToFollowUps = async (req, res) => {
 
             // Notify the user who created the follow-up
             const recipientId = followUp.noteAddByUser || client.assignedTo || existingUser._id;
-            
+
             await Notification.create({
                 title: title,
                 message: message,
@@ -744,7 +743,7 @@ const updateFollowUpStatus = async (req, res) => {
 
             // Notify the user who created the follow-up
             const recipientId = followUp.noteAddByUser || enquiry.assignedTo || existingUser._id;
-            
+
             await Notification.create({
                 title: title,
                 message: message,
@@ -762,24 +761,6 @@ const updateFollowUpStatus = async (req, res) => {
     }
 };
 
-
-
-
-
-// delete specific follow ups 
-
-const deleteSpecificFollowUp = async (req, res) => {
-
-    try {
-
-
-
-    } catch (error) {
-
-        console.log("error is ", error);
-
-    }
-}
 
 
 const getSpecificEnqueryData = async (req, res) => {
@@ -930,7 +911,7 @@ const updateEnqueryRequirement = async (req, res) => {
 
             // Notify the assigned sales person or admin
             const recipientId = isEnqueryExists.assignedTo || existingUser._id;
-            
+
             await Notification.create({
                 title: title,
                 message: message,
@@ -1012,6 +993,156 @@ const assignSalesPersonToInquiry = async (req, res) => {
     }
 };
 
+
+// update the enquery details 
+
+const updateEnqueryDetails = async (req, res) => {
+
+    try {
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
+        const {
+            name,
+            companyName,
+            email,
+            phone,
+            sourceWebsite,
+            sourcePlatform,
+            clientId,
+            requirement,
+            productLink,
+        } = req.body;
+
+        if (!clientId) {
+            return responseHandler(res, 400, false, "clientId is required");
+        }
+
+        const client = await Client.findById(clientId);
+        if (!client) {
+            return responseHandler(res, 404, false, "Client does not exist");
+        }
+
+        const changesField = {
+
+            name,
+            companyName,
+            email,
+            phone,
+            sourceWebsite,
+            sourcePlatform,
+            clientId,
+            requirement,
+            productLink,
+        };
+
+        // if (name) changesField.name = name;
+        // if (companyName) changesField.companyName = companyName;
+        // if (email) changesField.email = email;
+        // if (phone) changesField.phone = phone;
+        // if (sourceWebsite) changesField.sourceWebsite = sourceWebsite;
+
+        // // ⚠️ Bug Fix: You were assigning sourceWebsite to sourcePlatform
+        // if (sourcePlatform) changesField.sourcePlatform = sourcePlatform;
+
+        // if (productLink) changesField.productLink = productLink;
+        // if (requirement) changesField.requirement = requirement;
+
+        // if (Object.keys(changesField).length === 0) {
+        //     return responseHandler(res, 200, true, "No changes made");
+        // }
+
+        const updatedClient = await Client.findByIdAndUpdate(clientId, changesField, { new: true });
+
+        return responseHandler(res, 200, true, "Fields updated successfully", updatedClient);
+    } catch (error) {
+        console.error("Error updating enquiry details:", error);
+        return responseHandler(res, 500, false, "Error occurred while updating enquiry details", null, error);
+    }
+};
+
+
+// delete specific enquery 
+
+const deleteSpecificEnquery = async (req, res) => {
+    try {
+        const { id } = req.user;
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
+        const { enqueryId } = req.params;
+
+        console.log("enqueryId",enqueryId);
+
+        if (!enqueryId) {
+            return responseHandler(res, 400, false, "Enquiry ID is required");
+        }
+
+        const enquery = await Client.findById(enqueryId);
+        if (!enquery) {
+            return responseHandler(res, 404, false, "Enquiry does not exist");
+        }
+
+        // Delete related Invoice(s), Order(s), Quotation(s)
+        const clientObjectId = enquery._id;
+        const deletedInvoice = await Invoice.deleteMany({ clientId: clientObjectId });
+        const deletedOrder = await Order.deleteMany({ clientId: clientObjectId });
+        const deletedQuotation = await Quote.deleteMany({ clientId: clientObjectId });
+
+        // Delete the Enquiry
+        const deletedEnquiry = await Client.findByIdAndDelete(clientObjectId);
+
+        // ──────── 🔔 Send Notification ────────
+        try {
+            const title = "Enquiry Deleted";
+            const message = `You’ve deleted the enquiry from ${enquery.companyName} (“${enquery.requirement}”).`;
+
+            await Notification({
+                title,
+                message,
+                recipientId: existingUser._id, // or change to enquery.assignedTo, adminId, etc.
+                createdBy: existingUser._id,
+            });
+        } catch (notifErr) {
+            console.error("Notification error:", notifErr);
+            // we don't block the response if notifying fails
+        }
+        // ─────────────────────────────────────
+
+        return responseHandler(
+            res,
+            200,
+            true,
+            "Enquiry and related records deleted successfully",
+            {
+                deletedInvoiceCount: deletedInvoice.deletedCount,
+                deletedOrderCount: deletedOrder.deletedCount,
+                deletedQuotationCount: deletedQuotation.deletedCount,
+            }
+        );
+    } catch (error) {
+        console.error("Error while deleting enquiry:", error);
+        return responseHandler(res, 500, false, "Error occurred while deleting the enquiry", null, error);
+    }
+};
+
+
+
+
 export {
 
     createNewQuery,
@@ -1024,7 +1155,11 @@ export {
     getSpecificEnqueryData,
     updateFollowUpStatus,
     updateEnqueryRequirement,
-    assignSalesPersonToInquiry
+    assignSalesPersonToInquiry,
+    updateEnqueryDetails,
+    deleteSpecificEnquery
 
 }
+
+
 

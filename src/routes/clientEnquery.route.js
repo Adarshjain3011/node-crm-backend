@@ -13,6 +13,8 @@ import {
     getSpecificEnqueryData,
     updateFollowUpStatus,
     updateEnqueryRequirement,
+    updateEnqueryDetails,
+    deleteSpecificEnquery
 
 
 } from "../controllers/clientEnquery.controller.js";
@@ -48,6 +50,10 @@ router.get("/get-specific-enquery-data/:enqueryId",authMiddleware,authorizeRoles
 router.post("/update-follow-up-status",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),updateFollowUpStatus);
 
 router.post("/update-enquery-requirement",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),updateEnqueryRequirement)
+
+router.post("/update-enquery-details",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),updateEnqueryDetails);
+
+router.get("/deleteSpecificEnquery/:enqueryId",authMiddleware,authorizeRoles(user_role.admin),deleteSpecificEnquery);
 
 export default router;
 

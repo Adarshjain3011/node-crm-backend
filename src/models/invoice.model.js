@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import { paymentStatus } from "../utils/data.js";
+
 const invoiceSchema = new mongoose.Schema({
   // clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
   // orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true },
@@ -21,17 +23,8 @@ const invoiceSchema = new mongoose.Schema({
   // Invoice Details
   invoiceNumber: { type: String, required: true, unique: true },
   invoiceDate: { type: Date, default: Date.now },
-  // dueDate: { type: Date, required: true },
   dueDate: { type: Date },
   buyerWorkOrderDate: { type: Date },
-
-  // invoiceLink: { type: String }, // URL to the invoice document
-
-  // invoicePdfLinkGeneratedFromSystem: {
-
-  //   type: String
-
-  // },
 
   invoiceExcelLink :{
 
@@ -93,8 +86,8 @@ const invoiceSchema = new mongoose.Schema({
   paymentTerms: { type: String },
   paymentStatus: {
     type: String,
-    enum: ['Pending', 'Partially Paid', 'Paid', 'Overdue'],
-    default: 'Pending'
+    enum: Object.values(paymentStatus),
+    default: paymentStatus.PENDING
   },
   notes: { type: String },
 

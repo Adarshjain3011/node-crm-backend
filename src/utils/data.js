@@ -48,9 +48,16 @@ export const quote_status = {
 export const vendor_delivery_status = {
 
     'Pending':"Pending",
-    'InProgress':"InProgress",  
+    'InProgress':"InProgress",
     'Delivered':"Delivered"
 }
 
 
+
+export const paymentStatus = {
+  PENDING: "Pending",
+  PARTIALLY_PAID: "Partially Paid",
+  PAID: "Paid",
+  OVERDUE: "Overdue"
+};
 

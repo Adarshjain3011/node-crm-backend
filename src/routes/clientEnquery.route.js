@@ -42,7 +42,6 @@ router.post("/add-new-followups", authMiddleware,authorizeRoles(user_role.admin,
 
 router.post("/respondToFollowUps",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),respondToFollowUps)
 
-// router.get("/get-all-salespersonData",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),getAllSalesPersonData);
 
 router.get("/get-specific-enquery-data/:enqueryId",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),getSpecificEnqueryData);
 

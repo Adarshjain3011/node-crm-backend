@@ -14,7 +14,7 @@ const router = express.Router();
 
 router.post("/create-user",authMiddleware,authorizeRoles(user_role.admin),createUser);
 
-router.post("/assign-person-to-enquery",authMiddleware,authorizeRoles(user_role.admin),assignPersonToEnquery);
+router.post("/assign-person-to-enquery",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),assignPersonToEnquery);
 
 router.get("/get-all-members-data",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),getAllMembersData);
 

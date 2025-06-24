@@ -21,6 +21,13 @@ const clientSchema = new mongoose.Schema({
   // Assignment
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+  createdBy :{
+
+    type: mongoose.Schema.Types.ObjectId, ref: 'User',
+
+  },
+
   assignmentDate: { type: Date, default: Date.now },
 
   // Status

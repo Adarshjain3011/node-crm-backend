@@ -211,7 +211,19 @@ const handleOrderSync = async (quote) => {
 
 const updateRootFieldsAndItemAddDeleteAndUpdate = async (req, res) => {
   try {
-    const { rootFieldChanges, itemChanges, quoteId } = req.body;
+    let { rootFieldChanges, itemChanges, quoteId } = req.body;
+
+    // Parse fields if they are sent as strings (common with multipart/form-data)
+    try {
+      if (rootFieldChanges && typeof rootFieldChanges === 'string') {
+        rootFieldChanges = JSON.parse(rootFieldChanges);
+      }
+      if (itemChanges && typeof itemChanges === 'string') {
+        itemChanges = JSON.parse(itemChanges);
+      }
+    } catch (error) {
+      return responseHandler(res, 400, false, "Invalid JSON format in request body.", null, error.message);
+    }
 
     console.log("Request body for update:", {
       rootFieldChanges,

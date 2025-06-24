@@ -52,8 +52,9 @@ const createNewQuery = async (req, res) => {
             address: address || "",
             requirement: requirement || "",
             sourceWebsite: sourceWebsite || "",
-            sourcePlatform: sourcePlatform || ""
-
+            sourcePlatform: sourcePlatform || "",
+            createdBy:userExists._id,
+            
         });
 
 
@@ -89,14 +90,12 @@ const createNewQuery = async (req, res) => {
         return responseHandler(res, 201, true, "Query created successfully", newQuery);
 
     } catch (error) {
+
         console.log("Query error:", error);
         return responseHandler(res, 500, false, "Something went wrong", null, error);
+
     }
 };
-
-
-
-
 
 
 

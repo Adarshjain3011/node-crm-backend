@@ -49,7 +49,7 @@ export const login = async (req, res) => {
             id: isUserExists._id,
             name: isUserExists.name,
             email: isUserExists.email,
-            role: isUserExists.role
+            role: isUserExists.role,
         }
 
         // create an token 
@@ -80,6 +80,7 @@ export const login = async (req, res) => {
             email: isUserExists.email,
             role: isUserExists.role,
             phoneNo:isUserExists.phoneNo,
+            userImage:isUserExists.userImage || "",
             createdAt: isUserExists.createdAt,
             updatedAt: isUserExists.updatedAt
         };

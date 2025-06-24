@@ -351,7 +351,9 @@ const updateUserImage = async (req, res) => {
 
     try {
 
-      const uploadedImage = await uploadImage(userImageFile);
+      const uploadedImage = await uploadImage(userImageFile.tempFilePath);
+
+      console.log("uploadedImage is : ",uploadedImage);
       
       uploadedImageUrl = uploadedImage.secure_url;
 
@@ -367,7 +369,9 @@ const updateUserImage = async (req, res) => {
 
     userExists.userImage = uploadedImageUrl;
 
-    return responseHandler(res,500,false,"user image uploaded sucesssfully",userExists);
+    await userExists.save();
+
+    return responseHandler(res,200,true,"user image uploaded sucesssfully",userExists);
 
   } catch (error) {
 

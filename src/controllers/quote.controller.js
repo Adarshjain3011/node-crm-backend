@@ -188,7 +188,10 @@ const getAllQuoteRevisions = async (req, res) => {
   }
 }
 
+
+
 // Helper function to check if quote needs order sync
+
 const shouldSyncOrder = (quote) => {
   return quote.status.toLowerCase() === quote_status.APPROVED.toLowerCase();
 };
@@ -610,7 +613,7 @@ const addNewVendorToQuote = async (req, res) => {
 
       if (vendorIndex <= item.vendors.length - 1) {
 
-        console.log("item vendors length ",item.vendors.length)
+        console.log("item vendors length ", item.vendors.length)
 
         item.vendors[vendorIndex] = vendorData;
 

@@ -27,52 +27,35 @@ const createNewQuery = async (req, res) => {
 
         const {
             name,
-            companyName,
+            companyName, // optional 
             phone,
-            email,
-            address,
+            email, // optional 
+            address, // optional 
             requirement,
-            sourceWebsite,
-            sourcePlatform
+            sourceWebsite, // optional 
+            sourcePlatform // optional 
         } = req.body;
 
-        console.log(
-            "All required fields are:",
-            name,
-            companyName,
-            phone,
-            email,
-            address,
-            requirement,
-            sourceWebsite,
-            sourcePlatform
-        );
+        if (!name || !phone) {
 
-        if (
-            !name ||
-            !companyName ||
-            !phone ||
-            !email ||
-            !address ||
-            !requirement ||
-            !sourceWebsite ||
-            !sourcePlatform
-        ) {
             return res
                 .status(400)
                 .json({ success: false, message: "Please fill all the fields" });
         }
 
         const newQuery = new Client({
-            name,
-            companyName,
-            phone,
-            email,
-            address,
-            requirement,
-            sourceWebsite,
-            sourcePlatform
+
+            name: name,
+            companyName: companyName || "",
+            phone: phone,
+            email: email || "",
+            address: address || "",
+            requirement: requirement || "",
+            sourceWebsite: sourceWebsite || "",
+            sourcePlatform: sourcePlatform || ""
+
         });
+
 
         // Save the query to DB
         await newQuery.save();
@@ -1086,7 +1069,7 @@ const deleteSpecificEnquery = async (req, res) => {
 
         const { enqueryId } = req.params;
 
-        console.log("enqueryId",enqueryId);
+        console.log("enqueryId", enqueryId);
 
         if (!enqueryId) {
             return responseHandler(res, 400, false, "Enquiry ID is required");

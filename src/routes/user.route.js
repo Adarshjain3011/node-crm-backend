@@ -1,13 +1,14 @@
 
 import express from "express";
 
-import { createUser,assignPersonToEnquery,getAllMembersData, updateMembersData,deleteUser, uploadUserList,resetPassword } from "../controllers/user.controller.js";
+import { createUser,assignPersonToEnquery,getAllMembersData, updateMembersData,deleteUser, uploadUserList,resetPassword,updateUserImage } from "../controllers/user.controller.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 
 import { authorizeRoles } from "../middlewares/role.middleware.js";
 
 import { user_role } from "../utils/data.js";
+
 
 const router = express.Router();
 
@@ -25,7 +26,8 @@ router.post("/upload-user-list",uploadUserList);
 
 router.post("/reset-password",authMiddleware,resetPassword);
 
+router.post("/updateUserImage",authMiddleware,updateUserImage);
+
 
 export default router;
-
 

@@ -8,6 +8,8 @@ import { Vendor, Client, User } from "../config/models.js";
 
 import { Notification } from "../config/models.js";
 
+import uploadImage from "../utils/upload.js";
+
 // Utility to check if a user exists
 async function checkUserExists(userId) {
   try {
@@ -62,6 +64,7 @@ const createUser = async (req, res) => {
 };
 
 // Get all non-admin users
+
 const getAllMembersData = async (req, res) => {
   try {
     const { id } = req.user;
@@ -147,7 +150,7 @@ const assignPersonToEnquery = async (req, res) => {
 
       })
 
-      console.log("new notification data is : ",data);
+      console.log("new notification data is : ", data);
 
     } catch (error) {
       console.error("Notification error:", error);
@@ -168,6 +171,7 @@ const assignPersonToEnquery = async (req, res) => {
 
 
 // Update a member's data
+
 const updateMembersData = async (req, res) => {
   try {
     const { name, email, phoneNo, password, role, specialization, userId } = req.body;
@@ -324,6 +328,56 @@ const uploadUserList = async (req, res) => {
 };
 
 
+const updateUserImage = async (req, res) => {
+
+  try {
+
+    const { id } = req.user;
+
+    if (!id) {
+      return responseHandler(res, 401, false, "User is not authorized", null);
+    }
+
+    const userExists = await checkUserExists(id);
+    if (!userExists) {
+      return responseHandler(res, 400, false, "User not found", null);
+    }
+
+    const userImageFile = req.files.imageFile;
+
+    console.log("user image file : ", userImageFile);
+
+    let uploadedImageUrl = "";
+
+    try {
+
+      const uploadedImage = await uploadImage(userImageFile);
+      
+      uploadedImageUrl = uploadedImage.secure_url;
+
+    } catch (error) {
+
+      console.log("error is : ", error);
+
+      return responseHandler(res, 500, false, "error occur while uploading the image");
+
+    }
+
+    console.log("secure url is : ",uploadedImageUrl);
+
+    userExists.userImage = uploadedImageUrl;
+
+    return responseHandler(res,500,false,"user image uploaded sucesssfully",userExists);
+
+  } catch (error) {
+
+    console.log("error is : ", error);
+
+    return responseHandler(res, 500, false, "error occur while updating an user image ");
+
+  }
+}
+
 
 
 
@@ -335,7 +389,8 @@ export {
   updateMembersData,
   deleteUser,
   uploadUserList,
-  resetPassword
+  resetPassword,
+  updateUserImage
 
 };
 

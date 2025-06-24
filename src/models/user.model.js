@@ -11,10 +11,14 @@ const userSchema = new mongoose.Schema({
     enum: Object.values(user_role),
     default: 'sales'
   },
-  specialization:{
+  specialization: {
 
-    type:String,
+    type: String,
 
+  },
+  userImage: {
+
+    type: String
   },
   phoneNo: { type: String, },
   vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' }, // for vendor login users only

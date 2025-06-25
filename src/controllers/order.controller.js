@@ -1,6 +1,6 @@
 import responseHandler from "../utils/responseHandler.js"
 
-import { Quote, Order, Notification } from "../config/models.js";
+import { Quote, Order, Notification, Client } from "../config/models.js";
 
 import { quote_status, user_role, vendor_delivery_status } from "../utils/data.js";
 
@@ -231,34 +231,31 @@ const getAllOrders = async (req, res) => {
             return responseHandler(res, 400, false, "User not found", null);
         }
 
-        let orders;
+        let query = {};
 
-        if (existingUser.role === user_role.admin) {
-            // Admin gets all orders
-            orders = await Order.find()
-                .populate({
-                    path: 'clientId',
-                    populate: { path: 'assignedTo' }
-                })
-                .populate('invoiceId')
-                .populate('finalQuotationId')
-                .sort({ createdAt: -1 });
-        } else {
-            // For other users, filter orders where clientId.assignedTo === current user
-            orders = await Order.find()
-                .populate({
-                    path: 'clientId',
-                    populate: { path: 'assignedTo' }
-                })
-                .populate('invoiceId')
-                .populate('finalQuotationId')
-                .sort({ createdAt: -1 });
+        if (existingUser.role !== user_role.admin) {
+            
+            const userClients = await Client.find({
+                $or: [
+                    { createdBy: id },
+                    { assignedTo: id }
+                ]
+            }).select('_id');
 
-            // Filter in JS after populating
-            orders = orders.filter(order =>
-                order.clientId?.assignedTo?._id?.toString() === id
-            );
+            const clientIds = userClients.map(client => client._id);
+
+            query = { clientId: { $in: clientIds } };
         }
+
+        const orders = await Order.find(query)
+            .populate({
+                path: 'clientId',
+                populate: { path: 'assignedTo' }
+            })
+            .populate('invoiceId')
+            .populate('finalQuotationId')
+            .sort({ createdAt: -1 });
+
 
         return responseHandler(res, 200, true, "Orders fetched successfully", orders);
     } catch (error) {

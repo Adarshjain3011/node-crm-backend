@@ -1,7 +1,7 @@
 
 import express from "express";
 
-import { createUser,assignPersonToEnquery,getAllMembersData, updateMembersData,deleteUser, uploadUserList,resetPassword,updateUserImage } from "../controllers/user.controller.js";
+import { createUser,getAllMembersData, updateMembersData,deleteUser, uploadUserList,resetPassword,updateUserImage } from "../controllers/user.controller.js";
 
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 
@@ -14,7 +14,7 @@ const router = express.Router();
 
 router.post("/create-user",authMiddleware,authorizeRoles(user_role.admin),createUser);
 
-router.post("/assign-person-to-enquery",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),assignPersonToEnquery);
+// router.post("/assign-person-to-enquery",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),assignPersonToEnquery);
 
 router.get("/get-all-members-data",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),getAllMembersData);
 

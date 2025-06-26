@@ -14,7 +14,9 @@ import {
     updateFollowUpStatus,
     updateEnqueryRequirement,
     updateEnqueryDetails,
-    deleteSpecificEnquery
+    deleteSpecificEnquery,
+    removeSalesPersonFromEnquery,
+    assignSalesPersonToInquiry
 
 
 } from "../controllers/clientEnquery.controller.js";
@@ -54,5 +56,12 @@ router.post("/update-enquery-details",authMiddleware,authorizeRoles(user_role.ad
 
 router.get("/deleteSpecificEnquery/:enqueryId",authMiddleware,authorizeRoles(user_role.admin),deleteSpecificEnquery);
 
+router.post("/assign-person-to-enquery",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),assignSalesPersonToInquiry)
+
+router.post("/removeSalesPersonFromEnquery",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),removeSalesPersonFromEnquery);
+
 export default router;
+
+
+
 

@@ -13,16 +13,20 @@ const clientSchema = new mongoose.Schema({
   sourceWebsite: { type: String },
   sourcePlatform: { type: String },
 
-  productLink :{
+  productLink: {
 
     type: String,
 
   },
   // Assignment
-  assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+  assignedTo: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    default: []
+  },
   assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
-  createdBy :{
+  createdBy: {
 
     type: mongoose.Schema.Types.ObjectId, ref: 'User',
 
@@ -77,6 +81,7 @@ const clientSchema = new mongoose.Schema({
 
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
+
 });
 
 clientSchema.pre('save', function (next) {
@@ -85,5 +90,4 @@ clientSchema.pre('save', function (next) {
 });
 
 export default clientSchema;
-
 

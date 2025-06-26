@@ -241,6 +241,7 @@ const getAllOrders = async (req, res) => {
                     { assignedTo: id }
                 ]
             }).select('_id');
+            
 
             const clientIds = userClients.map(client => client._id);
 

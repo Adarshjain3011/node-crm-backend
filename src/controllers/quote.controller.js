@@ -6,6 +6,16 @@ import { createNewOrder } from "./order.controller.js";
 import { syncOrderWithQuote } from "../utils/orderSync.js";
 import { checkUserExists } from "../utils/helper.js";
 
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
+import path from "path";
+
+// Define __dirname for ES modules
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 // create an new quote for the specific enquery 
 
 const createNewQuote = async (req, res) => {
@@ -52,11 +62,6 @@ const createNewQuote = async (req, res) => {
       image,
     } = parsedData;
 
-    console.log("image is ", req.files?.image);
-
-    let imageFilePath = req.files?.image;
-
-    // console.log("inside body image is ",req.body?.image);
 
     if (!clientId) {
 
@@ -77,21 +82,47 @@ const createNewQuote = async (req, res) => {
 
     let uploadedImageUrl = "";
 
-    if (imageFilePath) {
+    const uploadedFile = req.files?.image;
 
-      try {
+    if (!uploadedFile) {
 
-        const result = await uploadImage(imageFilePath.tempFilePath);
+      return responseHandler(res, 400, false, "File is required", null);
 
-        uploadedImageUrl = result;
+    }
 
-      } catch (error) {
 
-        console.log("image url is ", uploadedImageUrl);
+    // Use /tmp on Vercel, local tmp otherwise
+    const tmpDir = process.env.VERCEL ? "/tmp" : path.join(__dirname, "../tmp");
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
 
-        return responseHandler(res, 400, false, "error occur while uplaodin the image ", null, error);
+    let tempFilePath = null;
 
-      }
+    // Save the file temporarily
+    const timestamp = Date.now();
+    const fileExt = path.extname(uploadedFile.name).toLowerCase(); // .xlsx, .xls or .pdf
+    const baseName = `quote-${clientExists._id}-${timestamp}${fileExt}`;
+    tempFilePath = path.join(tmpDir, baseName);
+    await uploadedFile.mv(tempFilePath);
+
+    // Only allow .xlsx, .xls, or .pdf files
+    if (![".xlsx", ".xls", ".pdf"].includes(fileExt)) {
+      return responseHandler(res, 400, false, "Only .xlsx, .xls or .pdf files are allowed", null);
+    }
+
+
+    try {
+
+      const result = await uploadImage(tempFilePath);
+
+      uploadedImageUrl = result;
+
+    } catch (error) {
+
+      console.log("image url is ", uploadedImageUrl);
+
+      return responseHandler(res, 400, false, "error occur while uplaodin the image ", null, error);
 
     }
 
@@ -166,6 +197,22 @@ const getAllQuoteRevisions = async (req, res) => {
 
   try {
 
+    const { id } = req.user;
+
+    if (!id) {
+
+      return responseHandler(res, 401, false, "User is not authorized", null);
+
+    }
+
+    const existingUser = await checkUserExists(id);
+
+    if (!existingUser) {
+
+      return responseHandler(res, 400, false, "User not found", null);
+
+    }
+
     const { enqueryId } = req.params;
 
     if (!enqueryId) {
@@ -186,6 +233,7 @@ const getAllQuoteRevisions = async (req, res) => {
     return responseHandler(res, 500, false, "error occur while fetch the quotes", null, error);
 
   }
+
 }
 
 
@@ -213,10 +261,12 @@ const handleOrderSync = async (quote) => {
 
 
 const updateRootFieldsAndItemAddDeleteAndUpdate = async (req, res) => {
+
+
   try {
+
     let { rootFieldChanges, itemChanges, quoteId } = req.body;
 
-    // Parse fields if they are sent as strings (common with multipart/form-data)
     try {
       if (rootFieldChanges && typeof rootFieldChanges === 'string') {
         rootFieldChanges = JSON.parse(rootFieldChanges);
@@ -235,6 +285,24 @@ const updateRootFieldsAndItemAddDeleteAndUpdate = async (req, res) => {
       files: req.files
     });
 
+    const { id } = req.user;
+
+    if (!id) {
+
+      return responseHandler(res, 401, false, "User is not authorized", null);
+
+    }
+
+    const existingUser = await checkUserExists(id);
+
+    if (!existingUser) {
+
+      return responseHandler(res, 400, false, "User not found", null);
+
+    }
+
+
+
     if (!quoteId) {
       return responseHandler(res, 400, false, "Quote ID is required.");
     }
@@ -248,17 +316,40 @@ const updateRootFieldsAndItemAddDeleteAndUpdate = async (req, res) => {
 
     // Handle image upload if present
     let uploadedImageUrl = "";
-    const imageFile = Array.isArray(req.files?.image) ? req.files.image[0] : req.files?.image;
-    if (imageFile) {
-      try {
-        const result = await uploadImage(imageFile.tempFilePath);
-        uploadedImageUrl = result.secure_url || "";
-        quote.image = uploadedImageUrl;
-      } catch (error) {
-        console.error("Image upload error:", error);
-        return responseHandler(res, 400, false, "Error uploading image.", null, error.message);
-      }
+    const uploadedFile = Array.isArray(req.files?.image) ? req.files.image[0] : req.files?.image;
+
+    // Ensure tmp directory exists
+
+    const tmpDir = path.join(__dirname, "../tmp");
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
     }
+
+    console.log("temp dir is : ", tmpDir);
+
+    let tempFilePath = null;
+
+    // Save the file temporarily
+    const timestamp = Date.now();
+    const fileExt = path.extname(uploadedFile.name).toLowerCase(); // .xlsx, .xls or .pdf
+    const baseName = `quote-${quoteId}-${timestamp}${fileExt}`;
+    tempFilePath = path.join(tmpDir, baseName);
+    await uploadedFile.mv(tempFilePath);
+
+    // Only allow .xlsx, .xls, or .pdf files
+    if (![".xlsx", ".xls", ".pdf"].includes(fileExt)) {
+      return responseHandler(res, 400, false, "Only .xlsx, .xls or .pdf files are allowed", null);
+    }
+
+    try {
+      const result = await uploadImage(tempFilePath);
+      uploadedImageUrl = result.secure_url || "";
+      quote.image = uploadedImageUrl;
+    } catch (error) {
+      console.error("Image upload error:", error);
+      return responseHandler(res, 400, false, "Error uploading image.", null, error.message);
+    }
+
 
     // Update root fields
     if (rootFieldChanges) {

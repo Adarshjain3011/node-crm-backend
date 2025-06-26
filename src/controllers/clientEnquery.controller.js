@@ -2,7 +2,7 @@ import responseHandler from "../utils/responseHandler.js";
 import { Vendor, Client, User, Notification, Order, Invoice, Quote } from "../config/models.js";
 import { checkUserExists } from "../utils/helper.js";
 
-
+import { user_role } from "../utils/data.js";
 
 // create new enquery 
 
@@ -53,8 +53,8 @@ const createNewQuery = async (req, res) => {
             requirement: requirement || "",
             sourceWebsite: sourceWebsite || "",
             sourcePlatform: sourcePlatform || "",
-            createdBy:userExists._id,
-            
+            createdBy: userExists._id,
+
         });
 
 
@@ -150,7 +150,31 @@ const getAllEnquery = async (req, res) => {
             })
             .sort({ createdAt: -1 });
 
-        return responseHandler(res, 200, true, "Enquery fetched successfully", allEnquery);
+
+        // now we have to filter out the enquery data from here itself 
+
+        console.log("all enquery data ", allEnquery);
+
+        let filteredEnquery;
+
+        if (isuserExists.role === user_role.admin) {
+
+            filteredEnquery = allEnquery;
+
+        } else {
+
+            filteredEnquery = allEnquery.filter((data) =>
+                data.assignedTo.some((ele) => String(ele._id) === String(isuserExists._id)) ||
+                String(data.createdBy) === String(isuserExists._id)
+            );
+
+            console.log("filtered enquery : ", filteredEnquery);
+
+        }
+
+
+        return responseHandler(res, 200, true, "Enquery fetched successfully", filteredEnquery);
+
 
     } catch (error) {
 
@@ -681,6 +705,8 @@ const respondToFollowUps = async (req, res) => {
 
 
 
+
+
 //update follow up status 
 
 
@@ -916,7 +942,11 @@ const updateEnqueryRequirement = async (req, res) => {
 }
 
 // assign sales person to inquiry
+
 const assignSalesPersonToInquiry = async (req, res) => {
+
+    console.log("assign sales person to enquery ke andar : ");
+
     try {
         const { id } = req.user;
 
@@ -945,35 +975,159 @@ const assignSalesPersonToInquiry = async (req, res) => {
             return responseHandler(res, 404, false, "Sales person not found");
         }
 
+        // Only admin or the user who created the enquiry can assign a salesperson
+        if (
+            existingUser.role !== user_role.admin &&
+            enquiry.createdBy.toString() !== existingUser._id.toString()
+        ) {
+            return responseHandler(res, 403, false, "User is not authorized to assign salesperson");
+        }
+
+        // Check if salesperson is already assigned
+        const isAlreadyAssigned = enquiry.assignedTo.some(
+            (assignedId) => assignedId.toString() === salesPerson._id.toString()
+        );
+
+        if (isAlreadyAssigned) {
+            return responseHandler(res, 400, false, "Sales person is already assigned to this enquiry");
+        }
+
         // Update the assignment
-        enquiry.assignedTo = salesPersonId;
+
+        console.log("enquiry before updation", enquiry);
+
+        enquiry.assignedTo.push(salesPersonId);
         enquiry.assignedBy = existingUser._id;
         enquiry.assignmentDate = new Date();
         enquiry.status = "Assigned";
 
         await enquiry.save();
 
-        // Create notification for sales person assignment
+        console.log("enquery after updation ", enquiry);
+
+        // Optional: Create notification (uncomment if needed)
+        /*
         try {
             const title = "Inquiry Assigned to You";
             const message = `You have been assigned to inquiry from ${enquiry.name} (${enquiry.companyName}) by ${existingUser.name}.`;
 
             await Notification.create({
-                title: title,
-                message: message,
+                title,
+                message,
                 recipientId: salesPersonId,
             });
         } catch (notificationError) {
             console.log("Notification error:", notificationError);
         }
+        */
 
-        return responseHandler(res, 200, true, "Sales person assigned successfully", enquiry);
+        // Return essential response data
+        return responseHandler(res, 200, true, "Sales person assigned successfully", {
+            enquiryId: enquiry._id,
+            assignedTo: enquiry.assignedTo,
+            assignedBy: enquiry.assignedBy,
+            status: enquiry.status,
+            assignmentDate: enquiry.assignmentDate,
+        });
 
     } catch (error) {
         console.error("Error assigning sales person:", error);
         return responseHandler(res, 500, false, "Something went wrong", null, error);
     }
 };
+
+
+
+
+
+// remove sales person from enquery ---->
+
+const removeSalesPersonFromEnquery = async (req, res) => {
+
+    try {
+
+        const { id } = req.user;
+
+        if (!id) {
+            return responseHandler(res, 401, false, "User is not authorized", null);
+        }
+
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
+        }
+
+        const { enqueryId, salesPersonId } = req.body;
+
+        if (!enqueryId || !salesPersonId) {
+
+            return responseHandler(res, 400, false, "Enquiry ID and Sales Person ID are required");
+
+        }
+
+        const enquiry = await Client.findById(enqueryId);
+
+        // check this thing first 
+
+        // const existing = await Client.findById(id);
+        // if (existing && existing.assignedTo && !Array.isArray(existing.assignedTo)) {
+        //     existing.assignedTo = [existing.assignedTo];
+        //     await existing.save();
+        // }
+
+        // console.log("existing : ", existing);
+
+        if (!enquiry) {
+            return responseHandler(res, 404, false, "Enquiry not found");
+        }
+
+        const salesPerson = await User.findById(salesPersonId);
+
+
+        if (!salesPerson) {
+            return responseHandler(res, 404, false, "Sales person not found");
+        }
+
+        // only admin or the sales user can remove the assined salesperson who created the enquery 
+
+        console.log("existing user role ", existingUser.role);
+
+        console.log("enquiry created by user id ", existingUser._id);
+
+        console.log("enquiry created by : ", enquiry.createdBy);
+
+        if (existingUser.role != user_role.admin && String(enquiry.createdBy) != String(existingUser._id)) {
+
+            return responseHandler(res, 400, false, "user is not authorized to remove assigned person ");
+
+        }
+
+        // Check and remove the salesperson if they are assigned
+
+        const isAssigned = enquiry.assignedTo.some(
+
+            (assignedId) => assignedId.toString() === salesPerson._id.toString()
+
+        );
+
+        if (!isAssigned) {
+            return responseHandler(res, 400, false, "Sales person is not assigned to this enquiry");
+        }
+
+        enquiry.assignedTo = enquiry.assignedTo.filter(
+            (assignedId) => assignedId.toString() !== salesPerson._id.toString()
+        );
+
+        await enquiry.save();
+
+        return responseHandler(res, 200, true, "Assigned sales person removed successfully");
+
+    } catch (error) {
+        console.error("Error while removing assigned sales person:", error);
+        return responseHandler(res, 500, false, "An error occurred while removing the assigned sales person");
+    }
+};
+
 
 
 // update the enquery details 
@@ -1139,7 +1293,8 @@ export {
     updateEnqueryRequirement,
     assignSalesPersonToInquiry,
     updateEnqueryDetails,
-    deleteSpecificEnquery
+    deleteSpecificEnquery,
+    removeSalesPersonFromEnquery,
 
 }
 

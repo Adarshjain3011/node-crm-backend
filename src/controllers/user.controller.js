@@ -90,86 +90,6 @@ const getAllMembersData = async (req, res) => {
 
 
 
-// Assign a salesperson to a client inquiry
-
-const assignPersonToEnquery = async (req, res) => {
-  try {
-
-    const { id } = req.user;
-
-    if (!id) {
-      return responseHandler(res, 401, false, "User is not authorized", null);
-    }
-
-    const userExists = await checkUserExists(id);
-    if (!userExists) {
-      return responseHandler(res, 400, false, "User not found", null);
-    }
-
-    const { enqueryId, salesPersonId } = req.body;
-
-    if (!enqueryId || !salesPersonId) {
-
-      return responseHandler(res, 400, false, "Please fill all required fields");
-
-    }
-
-    const enquery = await Client.findById(enqueryId);
-
-    if (!enquery) {
-      return responseHandler(res, 400, false, "Enquiry does not exist", null);
-    }
-
-    const salesPerson = await User.findById(salesPersonId);
-    if (!salesPerson) {
-      return responseHandler(res, 400, false, "Salesperson does not exist", null);
-    }
-
-    const updatedEnquery = await Client.findByIdAndUpdate(
-      enqueryId,
-      {
-        assignedTo: salesPersonId,
-        assignedBy: userExists._id,
-        status: enquery_status.Assigned,
-      },
-      { new: true }
-    );
-
-    // now here i have to add notification for assigning the salesPerson 
-
-    try {
-      const notificationTitle = "New Inquiry Assigned";
-      const notificationMessage = `You have been assigned a new inquiry from ${enquery.companyName} regarding "${enquery.requirement}" by ${userExists.name}.`;
-
-      const data = await Notification.create({
-
-        title: notificationTitle,
-        message: notificationMessage,
-        recipientId: salesPersonId,
-        createdBy: userExists._id,
-
-      })
-
-      console.log("new notification data is : ", data);
-
-    } catch (error) {
-      console.error("Notification error:", error);
-      // Optional: don't block the flow even if notification fails
-    }
-
-
-    return responseHandler(res, 200, true, "Salesperson assigned successfully", updatedEnquery);
-
-  } catch (error) {
-
-    console.error("Error assigning salesperson:", error);
-    return responseHandler(res, 500, false, "Something went wrong", null, error);
-
-  }
-};
-
-
-
 // Update a member's data
 
 const updateMembersData = async (req, res) => {
@@ -389,8 +309,6 @@ const updateUserImage = async (req, res) => {
 
 export {
   createUser,
-  // getAllSalesPerson,
-  assignPersonToEnquery,
   getAllMembersData,
   updateMembersData,
   deleteUser,

@@ -11,10 +11,13 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import path from "path";
 
+import { deleteTempFile } from "../utils/helper.js";
+
 // Define __dirname for ES modules
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
 
 // create an new quote for the specific enquery 
 
@@ -108,23 +111,27 @@ const createNewQuote = async (req, res) => {
 
     // Only allow .xlsx, .xls, or .pdf files
     if (![".xlsx", ".xls", ".pdf"].includes(fileExt)) {
+      deleteTempFile(tempFilePath);
       return responseHandler(res, 400, false, "Only .xlsx, .xls or .pdf files are allowed", null);
     }
 
 
     try {
 
-      const result = await uploadImage(tempFilePath);
-
+      const result = await uploadImage(tempFilePath, uploadedFile.name);
       uploadedImageUrl = result;
+      deleteTempFile(tempFilePath);
 
     } catch (error) {
 
       console.log("image url is ", uploadedImageUrl);
 
-      return responseHandler(res, 400, false, "error occur while uplaodin the image ", null, error);
+      deleteTempFile(tempFilePath);
+
+      return responseHandler(res, 400, false, "Error occurred while uploading the image", null, error);
 
     }
+
 
 
     console.log("uploaded image url ", uploadedImageUrl);
@@ -189,6 +196,7 @@ const createNewQuote = async (req, res) => {
     return responseHandler(res, 500, false, "some went wrong", null, error.message);
   }
 };
+
 
 
 // get the all the quote revisions for the specific enquery
@@ -338,16 +346,19 @@ const updateRootFieldsAndItemAddDeleteAndUpdate = async (req, res) => {
 
     // Only allow .xlsx, .xls, or .pdf files
     if (![".xlsx", ".xls", ".pdf"].includes(fileExt)) {
+      deleteTempFile(tempFilePath);
       return responseHandler(res, 400, false, "Only .xlsx, .xls or .pdf files are allowed", null);
     }
 
     try {
-      const result = await uploadImage(tempFilePath);
+      const result = await uploadImage(tempFilePath, uploadedFile.name);
       uploadedImageUrl = result.secure_url || "";
       quote.image = uploadedImageUrl;
+      deleteTempFile(tempFilePath);
     } catch (error) {
       console.error("Image upload error:", error);
-      return responseHandler(res, 400, false, "Error uploading image.", null, error.message);
+      deleteTempFile(tempFilePath);
+      return responseHandler(res, 400, false, "Error occurred while uploading the image", null, error);
     }
 
 
@@ -897,6 +908,7 @@ const updateQuoteItemDetails = async (req, res) => {
     return responseHandler(res, 500, false, "Error updating quote item.", null, error.message);
   }
 };
+
 
 
 

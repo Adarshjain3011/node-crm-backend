@@ -19,3 +19,17 @@ export async function checkUserExists(userId) {
 
 }
 
+
+// Helper to delete temp files synchronously
+
+export function deleteTempFile(filePath) {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+      console.log("Temp file deleted:", filePath);
+    } catch (err) {
+      console.error("Error deleting temp file:", err);
+    }
+  }
+}
+

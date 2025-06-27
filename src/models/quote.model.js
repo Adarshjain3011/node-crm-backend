@@ -39,7 +39,7 @@ const quoteSchema = new mongoose.Schema({
     totalAmount: Number,
     reason: String, // reason for revision if not version 1
     notes: String,
-    image: String,
+    image: [String],
     sentToClient: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     status: {
@@ -58,4 +58,6 @@ const quoteSchema = new mongoose.Schema({
 const Quote = mongoose.model('Quote', quoteSchema);
 
 export default Quote;
+
+
 

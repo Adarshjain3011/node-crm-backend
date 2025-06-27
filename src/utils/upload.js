@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import cloudinary from "../config/cloudinary.js";
 
-const uploadImage = async (filePath) => {
+const uploadImage = async (filePath, originalName = null) => {
   try {
     console.log("Uploading file to Cloudinary:", filePath);
 
@@ -18,16 +18,17 @@ const uploadImage = async (filePath) => {
 
     // Extract file extension and name
     const ext = path.extname(filePath); // e.g., '.pdf', '.xlsx'
-    const fileName = path.basename(filePath, ext); // filename without extension
+    const fileName = originalName
+      ? path.basename(originalName, ext)
+      : path.basename(filePath, ext);
     const fullFileName = `${fileName}${ext}`; // ensures extension is preserved
 
     // Define raw file types
     const rawExtensions = [".pdf", ".docx", ".pptx", ".xlsx"];
     const isRawFile = rawExtensions.includes(ext.toLowerCase());
 
-    console.log("file name : ",fileName);
-
-    console.log("full name is : ",fullFileName);
+    console.log("file name : ", fileName);
+    console.log("full name is : ", fullFileName);
 
     // Upload to Cloudinary
     const response = await cloudinary.uploader.upload(filePath, {

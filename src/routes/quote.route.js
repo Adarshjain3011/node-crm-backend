@@ -9,7 +9,8 @@ import {
     removeVendorAtQuotes,
     updateQuoteItemDetails,
     updateRootFieldsAndItemAddDeleteAndUpdate,
-    updateQuoteStatus
+    updateQuoteStatus,
+    removeImageFromQuotes
 
 } from "../controllers/quote.controller.js";
 
@@ -35,6 +36,8 @@ router.post("/update-quote-item-details",authMiddleware,authorizeRoles(user_role
 router.post("/update-root-fields-and-item-add-delete-and-update",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),updateRootFieldsAndItemAddDeleteAndUpdate);
 
 router.post("/update-quote-status",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),updateQuoteStatus);
+
+router.post("/remove-image-from-quote",authMiddleware,authorizeRoles(user_role.admin,user_role.sales),removeImageFromQuotes);
 
 export default router;
 

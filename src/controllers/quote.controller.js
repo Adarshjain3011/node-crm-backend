@@ -326,9 +326,9 @@ const updateRootFieldsAndItemAddDeleteAndUpdate = async (req, res) => {
     let uploadedImageUrl = "";
     const uploadedFile = Array.isArray(req.files?.image) ? req.files.image[0] : req.files?.image;
 
-    // Ensure tmp directory exists
+    // Use /tmp on Vercel, local tmp otherwise
+    const tmpDir = process.env.VERCEL ? "/tmp" : path.join(__dirname, "../tmp");
 
-    const tmpDir = path.join(__dirname, "../tmp");
     if (!fs.existsSync(tmpDir)) {
       fs.mkdirSync(tmpDir, { recursive: true });
     }
@@ -353,7 +353,7 @@ const updateRootFieldsAndItemAddDeleteAndUpdate = async (req, res) => {
     try {
       const result = await uploadImage(tempFilePath, uploadedFile.name);
       uploadedImageUrl = result.secure_url || "";
-      quote.image = uploadedImageUrl;
+      quote.image.push(uploadedImageUrl);
       deleteTempFile(tempFilePath);
     } catch (error) {
       console.error("Image upload error:", error);
@@ -911,6 +911,60 @@ const updateQuoteItemDetails = async (req, res) => {
 
 
 
+// remove image from Quote 
+
+const removeImageFromQuotes = async (req, res) => {
+
+  try {
+
+    const { quoteId, imageIndex } = req.body;
+
+    console.log("remove image from quotes ke andar ");
+
+    console.log("quoteId : ", quoteId);
+
+    console.log("itemIndex :", imageIndex);
+
+    if (!quoteId || imageIndex === undefined) {
+
+      return responseHandler(res, 500, false, "all field are required",);
+
+    }
+
+    // check quotation is exists or not 
+
+    const isQuotationExists = await Quote.findById(quoteId);
+
+    if (!isQuotationExists) {
+
+      return responseHandler(res, 400, false, "quote does not exists with this quoteId ");
+
+    }
+
+    isQuotationExists.image.splice(imageIndex, 1);
+
+    await isQuotationExists.save();
+
+    console.log("updated quote is : ", isQuotationExists);
+
+    // return the successfull response 
+
+    return responseHandler(res, 200, true, "image deleted successfully ",);
+
+
+  } catch (error) {
+
+    console.log("error is : ", error);
+
+    return responseHandler(res, 500, false, "error occur while deleting the image  ", null, error);
+
+  }
+
+}
+
+
+
+
 
 export {
 
@@ -920,7 +974,8 @@ export {
   removeVendorAtQuotes,
   updateQuoteItemDetails,
   updateRootFieldsAndItemAddDeleteAndUpdate,
-  updateQuoteStatus
+  updateQuoteStatus,
+  removeImageFromQuotes
 
 }
 

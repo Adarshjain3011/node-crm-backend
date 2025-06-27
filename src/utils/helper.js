@@ -2,6 +2,8 @@
 
 import { User } from "../config/models.js";
 
+import fs from "fs";
+
 export async function checkUserExists(userId) {
 
     try {

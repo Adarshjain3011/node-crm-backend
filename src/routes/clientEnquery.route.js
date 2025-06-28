@@ -63,5 +63,3 @@ router.post("/removeSalesPersonFromEnquery",authMiddleware,authorizeRoles(user_r
 export default router;
 
 
-
-

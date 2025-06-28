@@ -13,19 +13,34 @@ const vendorSplitSchema = new mongoose.Schema({
         enum: Object.values(vendor_delivery_status),
         default: vendor_delivery_status.Pending,
     },
-
+    taxPercent: Number,
     deliveryDate: Date
 });
 
+
+
 const quoteItemSchema = new mongoose.Schema({
+
     description: { type: String, required: true },
     hsn: String,
     unit: String,
     quantity: Number,
     finalUnitPrice: Number,
     subtotal: Number,
-    vendors: [vendorSplitSchema]
+    refImage:{
+
+        type:String,
+    },
+    taxPercentage:{
+
+        type:String,
+    },
+    vendors: [vendorSplitSchema],
+
 });
+
+
+
 
 const quoteSchema = new mongoose.Schema({
     clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
@@ -39,7 +54,10 @@ const quoteSchema = new mongoose.Schema({
     totalAmount: Number,
     reason: String, // reason for revision if not version 1
     notes: String,
-    image: [String],
+    image: {
+        type: [String],
+        default: [],
+    },
     sentToClient: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     status: {
@@ -58,6 +76,5 @@ const quoteSchema = new mongoose.Schema({
 const Quote = mongoose.model('Quote', quoteSchema);
 
 export default Quote;
-
 
 

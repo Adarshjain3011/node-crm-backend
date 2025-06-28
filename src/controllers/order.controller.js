@@ -42,7 +42,7 @@ const createNewOrder = async ({ quoteId, clientId, userId }) => {
                 item.vendors.forEach((vendor) => {
                     vendorAssignments.push({
                         vendorId: vendor.vendorId,
-                        itemRef: item.description,
+                        itemRef: vendor.description,
                         assignedQty: vendor.quantity || 0,
                         orderValue: (vendor.quantity || 0) * (vendor.costPerUnit || 0),
                         advancePaid: vendor.advance || 0,
@@ -65,7 +65,7 @@ const createNewOrder = async ({ quoteId, clientId, userId }) => {
             gstAmount: quote.gstPercent || 0,
             totalPayable: quote.totalAmount,
             vendorAssignments,
-            documents: quote.image ? [quote.image] : [],
+            documents: quote.image && Array.isArray(quote.image) ? quote.image : [],
             deliveryStatus: 'Pending',
             createdAt: new Date(),
             updatedAt: new Date()

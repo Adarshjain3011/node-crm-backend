@@ -25,25 +25,44 @@ export const syncOrderWithQuote = async (quoteId, quoteData) => {
         order.installation = quoteData.installation || 0;
         order.gstAmount = quoteData.gstPercent || 0;
         order.totalPayable = quoteData.totalAmount;
-        order.documents = quoteData.image ? [quoteData.image] : [];
+        order.documents = quoteData.image && Array.isArray(quoteData.image) ? quoteData.image : [];
 
         // Update vendor assignments based on quote items
         const vendorAssignments = [];
-        quoteData.items.forEach((item) => {
-            item.vendors.forEach((vendor) => {
-                vendorAssignments.push({
-                    vendorId: vendor.vendorId,
-                    itemRef: item.description,
-                    assignedQty: vendor.quantity,
-                    orderValue: vendor.quantity * vendor.costPerUnit,
-                    advancePaid: vendor.advance,
-                    finalPayment: (vendor.quantity * vendor.costPerUnit) - vendor.advance,
-                    deliveryEstimate: vendor.deliveryDate,
-                    status: vendor.vendordeliveryStatus,
+        console.log("Processing quote items for vendor assignments:", quoteData.items.length);
+        
+        quoteData.items.forEach((item, itemIndex) => {
+            console.log(`Item ${itemIndex}:`, item.description, "Vendors:", item.vendors?.length || 0);
+            if (item.vendors && Array.isArray(item.vendors)) {
+                item.vendors.forEach((vendor, vendorIndex) => {
+                    const advanceValue = vendor.advance === "N/A" ? 0 : (vendor.advance || 0);
+                    const orderValue = (vendor.quantity || 0) * (vendor.costPerUnit || 0);
+                    
+                    console.log(`Vendor ${vendorIndex}:`, {
+                        vendorId: vendor.vendorId,
+                        description: vendor.description,
+                        quantity: vendor.quantity,
+                        costPerUnit: vendor.costPerUnit,
+                        advance: vendor.advance,
+                        advanceValue: advanceValue,
+                        orderValue: orderValue
+                    });
+                    
+                    vendorAssignments.push({
+                        vendorId: vendor.vendorId,
+                        itemRef: vendor.description || item.description,
+                        assignedQty: vendor.quantity || 0,
+                        orderValue: orderValue,
+                        advancePaid: advanceValue,
+                        finalPayment: orderValue - advanceValue,
+                        deliveryEstimate: vendor.deliveryDate,
+                        status: vendor.vendordeliveryStatus,
+                    });
                 });
-            });
+            }
         });
 
+        console.log("Final vendor assignments:", vendorAssignments.length);
         order.vendorAssignments = vendorAssignments;
         order.updatedAt = new Date();
 

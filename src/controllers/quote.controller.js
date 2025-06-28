@@ -87,54 +87,47 @@ const createNewQuote = async (req, res) => {
 
     const uploadedFile = req.files?.image;
 
-    if (!uploadedFile) {
+    if (uploadedFile) {
 
-      return responseHandler(res, 400, false, "File is required", null);
+      // Use /tmp on Vercel, local tmp otherwise
+      const tmpDir = process.env.VERCEL ? "/tmp" : path.join(__dirname, "../tmp");
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+      }
 
-    }
+      let tempFilePath = null;
 
+      // Save the file temporarily
+      const timestamp = Date.now();
+      const fileExt = path.extname(uploadedFile.name).toLowerCase(); // .xlsx, .xls or .pdf
+      const baseName = `quote-${clientExists._id}-${timestamp}${fileExt}`;
+      tempFilePath = path.join(tmpDir, baseName);
+      await uploadedFile.mv(tempFilePath);
 
-    // Use /tmp on Vercel, local tmp otherwise
-    const tmpDir = process.env.VERCEL ? "/tmp" : path.join(__dirname, "../tmp");
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir, { recursive: true });
-    }
-
-    let tempFilePath = null;
-
-    // Save the file temporarily
-    const timestamp = Date.now();
-    const fileExt = path.extname(uploadedFile.name).toLowerCase(); // .xlsx, .xls or .pdf
-    const baseName = `quote-${clientExists._id}-${timestamp}${fileExt}`;
-    tempFilePath = path.join(tmpDir, baseName);
-    await uploadedFile.mv(tempFilePath);
-
-    // Only allow .xlsx, .xls, or .pdf files
-    if (![".xlsx", ".xls", ".pdf"].includes(fileExt)) {
-      deleteTempFile(tempFilePath);
-      return responseHandler(res, 400, false, "Only .xlsx, .xls or .pdf files are allowed", null);
-    }
+      // Only allow .xlsx, .xls, or .pdf files
+      if (![".xlsx", ".xls", ".pdf"].includes(fileExt)) {
+        deleteTempFile(tempFilePath);
+        return responseHandler(res, 400, false, "Only .xlsx, .xls or .pdf files are allowed", null);
+      }
 
 
-    try {
+      try {
 
-      const result = await uploadImage(tempFilePath, uploadedFile.name);
-      uploadedImageUrl = result;
-      deleteTempFile(tempFilePath);
+        const result = await uploadImage(tempFilePath, uploadedFile.name);
+        uploadedImageUrl = result;
+        deleteTempFile(tempFilePath);
 
-    } catch (error) {
+      } catch (error) {
 
-      console.log("image url is ", uploadedImageUrl);
+        console.log("image url is ", uploadedImageUrl);
 
-      deleteTempFile(tempFilePath);
+        deleteTempFile(tempFilePath);
 
-      return responseHandler(res, 400, false, "Error occurred while uploading the image", null, error);
+        return responseHandler(res, 400, false, "Error occurred while uploading the image", null, error);
+
+      }
 
     }
-
-
-
-    console.log("uploaded image url ", uploadedImageUrl);
 
     // Get latest quote version for the client
     const existingQuotes = await Quote.find({ clientId });
@@ -168,7 +161,7 @@ const createNewQuote = async (req, res) => {
       totalAmount: finalTotal,
       reason: version > 1 ? reason : undefined,
       notes,
-      image: uploadedImageUrl.secure_url || "",
+      image: uploadedImageUrl?.secure_url || "",
       createdBy: req.user?._id || null, // assuming auth middleware
       status: 'Draft'
     });
@@ -664,6 +657,7 @@ const updateQuoteStatus = async (req, res) => {
 // add new vendor to the quotes 
 
 
+
 const addNewVendorToQuote = async (req, res) => {
   try {
     const { quoteId, itemIndex, vendorData, vendorIndex } = req.body;
@@ -696,38 +690,37 @@ const addNewVendorToQuote = async (req, res) => {
       return responseHandler(res, 400, false, "Vendor quantity and cost per unit are required.");
     }
 
+    // Check if this vendor already exists (for duplicate handling)
     const vendorExists = item.vendors.some(
       (v) => v.vendorId.toString() === vendorData.vendorId
     );
 
-    if (vendorExists) {
-      const vendorToUpdate = item.vendors.find(
-        (v) => v.vendorId.toString() === vendorData.vendorId
-      );
-      if (vendorToUpdate) {
-        Object.assign(vendorToUpdate, vendorData);
-      }
+    // Find the index of the first occurrence of this vendor
+    const firstVendorIndex = item.vendors.findIndex(
+      (v) => v.vendorId.toString() === vendorData.vendorId
+    );
+
+    // If vendor exists and we're not updating the first occurrence, set advance to "N/A"
+    if (vendorExists && vendorIndex !== firstVendorIndex) {
+      vendorData.advance = "N/A";
+      console.log("Setting advance to N/A for duplicate vendor at index:", vendorIndex);
+    } else if (vendorExists && vendorIndex === firstVendorIndex) {
+      console.log("Updating first occurrence of vendor at index:", vendorIndex, "Preserving original advance");
     } else {
+      console.log("Adding new vendor (first time)");
+    }
 
-      console.log("vendor exists naii karta bhai ")
+    console.log("vendor ke index wala mil gaya : ", item.vendors[vendorIndex]);
 
-      // this reprsent vendor want to update the existing vendor or want to just replace the vendor 
-
-      if (vendorIndex <= item.vendors.length - 1) {
-
-        console.log("item vendors length ", item.vendors.length)
-
-        item.vendors[vendorIndex] = vendorData;
-
-
-      } else {
-
-        // this will run in case of new vendor 
-
-        item.vendors.push(vendorData);
-
-      }
-
+    // Always add the vendor (allowing duplicates)
+    if (vendorIndex !== undefined && vendorIndex <= item.vendors.length - 1) {
+      // Replace vendor at specific index
+      console.log("Replacing vendor at index:", vendorIndex);
+      item.vendors[vendorIndex] = vendorData;
+    } else {
+      // Add new vendor (this will create duplicates if vendor already exists)
+      console.log("Adding new vendor (may be duplicate)");
+      item.vendors.push(vendorData);
     }
 
     await quote.save();
@@ -754,6 +747,7 @@ const addNewVendorToQuote = async (req, res) => {
     }
 
     // Sync with order if needed
+    
     const updatedOrder = await handleOrderSync(quote);
 
     return responseHandler(
@@ -772,16 +766,20 @@ const addNewVendorToQuote = async (req, res) => {
 
 
 
+
+
 // remove vendor at the quotes 
+
+
 
 const removeVendorAtQuotes = async (req, res) => {
 
   try {
 
-    const { quoteId, itemIndex, vendorId } = req.body;
+    const { quoteId, itemIndex, vendorIndex } = req.body;
 
-    if (!quoteId || itemIndex === undefined) {
-      return responseHandler(res, 400, false, "Quote ID, itemIndex, and vendor data (with vendorId) are required.");
+    if (!quoteId || itemIndex === undefined || vendorIndex === undefined) {
+      return responseHandler(res, 400, false, "Quote ID, itemIndex, and vendorIndex are required.");
     }
 
     const quote = await Quote.findById(quoteId);
@@ -794,21 +792,17 @@ const removeVendorAtQuotes = async (req, res) => {
       return responseHandler(res, 400, false, "Invalid item index.");
     }
 
-
     let item = quote.items[itemIndex];
 
-    // Remove vendor by ID
-
-    const initialLength = item.vendors.length;
-
-
-    item.vendors = item.vendors.filter((vendor) => vendor.vendorId.toString() !== vendorId);
-
-    if (item.vendors.length === initialLength) {
-
-      return responseHandler(res, 404, false, "Vendor not found in item.");
-
+    // Check if vendor index is valid
+    if (vendorIndex < 0 || vendorIndex >= item.vendors.length) {
+      return responseHandler(res, 400, false, "Invalid vendor index.");
     }
+
+    // Remove vendor by index
+    const removedVendor = item.vendors.splice(vendorIndex, 1)[0];
+
+    console.log("Removed vendor at index:", vendorIndex, "Vendor details:", removedVendor);
 
     await quote.save();
 
@@ -833,16 +827,27 @@ const removeVendorAtQuotes = async (req, res) => {
       console.log("Notification error:", notificationError);
     }
 
-    return responseHandler(res, 200, true, "Vendor removed from quote item successfully.", quote);
+    // Sync with order if needed
+    const updatedOrder = await handleOrderSync(quote);
+
+    return responseHandler(
+      res,
+      200,
+      true,
+      updatedOrder ? "Vendor removed and order updated successfully." : "Vendor removed from quote item successfully.",
+      updatedOrder ? { quote, order: updatedOrder } : quote
+    );
 
 
   } catch (error) {
 
     console.log("error is : ", error);
 
-    return responseHandler(res, 500, false, "vendor remove successfully",)
+    return responseHandler(res, 500, false, "Error occurred while removing vendor", null, error.message);
   }
 }
+
+
 
 // update the specific quote item details
 
@@ -902,7 +907,16 @@ const updateQuoteItemDetails = async (req, res) => {
       console.log("Notification error:", notificationError);
     }
 
-    return responseHandler(res, 200, true, "Quote item updated successfully.", quote);
+    // Sync with order if needed
+    const updatedOrder = await handleOrderSync(quote);
+
+    return responseHandler(
+      res,
+      200,
+      true,
+      updatedOrder ? "Quote item and order updated successfully." : "Quote item updated successfully.",
+      updatedOrder ? { quote, order: updatedOrder } : quote
+    );
   } catch (error) {
     console.error("Error updating quote item:", error);
     return responseHandler(res, 500, false, "Error updating quote item.", null, error.message);

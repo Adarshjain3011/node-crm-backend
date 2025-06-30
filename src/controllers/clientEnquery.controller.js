@@ -1,5 +1,5 @@
 import responseHandler from "../utils/responseHandler.js";
-import { Vendor, Client, User, Notification, Order, Invoice, Quote } from "../config/models.js";
+import {Client, User, Notification, Order, Invoice, Quote } from "../config/models.js";
 import { checkUserExists } from "../utils/helper.js";
 
 import { user_role } from "../utils/data.js";
@@ -147,7 +147,7 @@ const getAllEnquery = async (req, res) => {
                     path: "respondedBy",
                     select: "name"
                 }
-            })
+            }).populate("createdBy", "name")
             .sort({ createdAt: -1 });
 
 
@@ -533,9 +533,7 @@ const updateVendorAssignment = async (req, res) => {
 // add follow up note by admin ---->
 
 const addNewFollowups = async (req, res) => {
-
     try {
-
         const { id } = req.user;
 
         if (!id) {
@@ -547,60 +545,57 @@ const addNewFollowups = async (req, res) => {
             return responseHandler(res, 400, false, "User not found", null);
         }
 
-        // although we can get this by 
-
         const { enqueryId, followUpDate, followUpNote } = req.body;
 
-        console.log("all required fileds are ", enqueryId, followUpDate, followUpNote)
-
-        if (!enqueryId || !followUpDate || !followUpNote) {
-
-            return responseHandler(res, 400, false, "enquery id and followUpDate and followUpNote are required");
-
+        if (![enqueryId, followUpDate, followUpNote].every(Boolean)) {
+            return responseHandler(res, 400, false, "enqueryId, followUpDate, and followUpNote are required");
         }
 
-        const enquiry = await Client.findById(enqueryId);
-
-        if (!enquiry) return responseHandler(res, 400, false, "enquery id is required");
+        const enquiry = await Client.findById(enqueryId).select("followUps");
+        if (!enquiry) {
+            return responseHandler(res, 400, false, "Enquiry not found");
+        }
 
         enquiry.followUps.push({
-
             followUpDate,
             followUpNote,
             noteAddByUser: existingUser._id,
-
         });
 
         await enquiry.save();
 
-        // Create notification for new follow-up
+        // Populate the latest follow-up with user details
+        await enquiry.populate({
+            path: "followUps.noteAddByUser",
+            select: "name"
+        });
+
+        const lastFollowUp = enquiry.followUps[enquiry.followUps.length - 1];
+
+        // Create notification
         try {
             const title = "New Follow-up Added";
             const message = `A new follow-up has been added to inquiry from ${enquiry.name} (${enquiry.companyName}) by ${existingUser.name}.`;
 
-            // Notify the assigned sales person or admin
             const recipientId = enquiry.assignedTo || existingUser._id;
 
             await Notification.create({
-                title: title,
-                message: message,
-                recipientId: recipientId,
+                title,
+                message,
+                recipientId,
             });
         } catch (notificationError) {
             console.log("Notification error:", notificationError);
         }
 
-        return responseHandler(res, 200, true, "Follow up added successfully", enquiry);
-
+        return responseHandler(res, 200, true, "Follow up added successfully", lastFollowUp);
 
     } catch (error) {
-
-        console.log("error is ", error);
-
-        return responseHandler(res, 500, false, "error occur while adding new follow up ", error);
-
+        console.log("Error is ", error);
+        return responseHandler(res, 500, false, "Error occurred while adding new follow-up", error);
     }
-}
+};
+
 
 
 
@@ -729,14 +724,20 @@ const updateFollowUpStatus = async (req, res) => {
             return responseHandler(res, 400, false, "enqueryId, followUpId, and status are required", null);
         }
 
-        const enquiry = await Client.findById(enqueryId);
+        const enquiry = await Client.findById(enqueryId).select("followUps");
+
         if (!enquiry) {
+
             return responseHandler(res, 404, false, "Enquiry not found", null);
+
         }
 
         const followUp = enquiry.followUps.id(followUpId);
+
         if (!followUp) {
+
             return responseHandler(res, 404, false, "Follow-up not found", null);
+
         }
 
         followUp.done = status;
@@ -761,7 +762,7 @@ const updateFollowUpStatus = async (req, res) => {
             console.log("Notification error:", notificationError);
         }
 
-        return responseHandler(res, 200, true, "Follow-up status updated successfully", enquiry);
+        return responseHandler(res, 200, true, "Follow-up status updated successfully");
 
     } catch (error) {
         console.error("Error updating follow-up status:", error);
@@ -1067,15 +1068,6 @@ const removeSalesPersonFromEnquery = async (req, res) => {
 
         const enquiry = await Client.findById(enqueryId);
 
-        // check this thing first 
-
-        // const existing = await Client.findById(id);
-        // if (existing && existing.assignedTo && !Array.isArray(existing.assignedTo)) {
-        //     existing.assignedTo = [existing.assignedTo];
-        //     await existing.save();
-        // }
-
-        // console.log("existing : ", existing);
 
         if (!enquiry) {
             return responseHandler(res, 404, false, "Enquiry not found");

@@ -234,14 +234,14 @@ const getAllOrders = async (req, res) => {
         let query = {};
 
         if (existingUser.role !== user_role.admin) {
-            
+
             const userClients = await Client.find({
                 $or: [
                     { createdBy: id },
                     { assignedTo: id }
                 ]
             }).select('_id');
-            
+
 
             const clientIds = userClients.map(client => client._id);
 
@@ -251,7 +251,11 @@ const getAllOrders = async (req, res) => {
         const orders = await Order.find(query)
             .populate({
                 path: 'clientId',
-                populate: { path: 'assignedTo' }
+                select: 'name assignedTo', // select only needed fields from client
+                populate: {
+                    path: 'assignedTo',
+                    select: 'name email' // select only needed fields from assigned user
+                }
             })
             .populate('invoiceId')
             .populate('finalQuotationId')
@@ -259,6 +263,7 @@ const getAllOrders = async (req, res) => {
 
 
         return responseHandler(res, 200, true, "Orders fetched successfully", orders);
+
     } catch (error) {
         console.error("Error fetching orders:", error);
         return responseHandler(res, 500, false, "Error fetching orders", null, error.message);
@@ -333,6 +338,8 @@ const updateVendorAssignmentStatus = async (req, res) => {
 };
 
 // Update order delivery details
+
+
 const updateOrderDeliveryDetails = async (req, res) => {
     try {
         const { id } = req.user;
@@ -361,7 +368,7 @@ const updateOrderDeliveryDetails = async (req, res) => {
         if (deliveryDate) order.deliveryDate = deliveryDate;
         if (deliveryAddress) order.deliveryAddress = deliveryAddress;
         if (trackingNumber) order.trackingNumber = trackingNumber;
-        
+
         if (deliveryNotes) {
             order.deliverySummary.push({
                 remarks: deliveryNotes,

@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import responseHandler from "../utils/responseHandler.js";
 import { user_role, enquery_status } from "../utils/data.js";
 
-import { Vendor, Client, User } from "../config/models.js";
+import { Client, User } from "../config/models.js";
 
 import { Notification } from "../config/models.js";
 
@@ -275,8 +275,8 @@ const updateUserImage = async (req, res) => {
 
       const uploadedImage = await uploadImage(userImageFile.tempFilePath);
 
-      console.log("uploadedImage is : ",uploadedImage);
-      
+      console.log("uploadedImage is : ", uploadedImage);
+
       uploadedImageUrl = uploadedImage.secure_url;
 
     } catch (error) {
@@ -287,13 +287,13 @@ const updateUserImage = async (req, res) => {
 
     }
 
-    console.log("secure url is : ",uploadedImageUrl);
+    console.log("secure url is : ", uploadedImageUrl);
 
     userExists.userImage = uploadedImageUrl;
 
     await userExists.save();
 
-    return responseHandler(res,200,true,"user image uploaded sucesssfully",userExists);
+    return responseHandler(res, 200, true, "user image uploaded sucesssfully", userExists);
 
   } catch (error) {
 

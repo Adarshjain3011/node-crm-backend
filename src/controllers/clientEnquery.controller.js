@@ -102,42 +102,30 @@ const createNewQuery = async (req, res) => {
 // get all enquery 
 
 const getAllEnquery = async (req, res) => {
-
-    const { id } = req.user;
-
-    if (!id) {
-        return responseHandler(res, 401, false, "User is not authorized", null);
-    }
-
-    const existingUser = await checkUserExists(id);
-    if (!existingUser) {
-        return responseHandler(res, 400, false, "User not found", null);
-    }
-
     try {
-
         const { id } = req.user;
 
         if (!id) {
-
-            return responseHandler(res, 400, false, "user is not authorised ", null);
+            return responseHandler(res, 401, false, "User is not authorized", null);
         }
 
-        let isuserExists;
-
-        try {
-
-            isuserExists = await checkUserExists(id);
-
-        } catch (error) {
-
-            console.log("error is : ", error);
-
-            return responseHandler(res, 400, false, "Something went wrong", null, error);
-
+        const existingUser = await checkUserExists(id);
+        if (!existingUser) {
+            return responseHandler(res, 400, false, "User not found", null);
         }
 
-        const allEnquery = await Client.find()
+        let query = {};
+
+        if (existingUser.role !== user_role.admin) {
+            query = {
+                $or: [
+                    { createdBy: existingUser._id },
+                    { assignedTo: existingUser._id }
+                ]
+            };
+        }
+
+        const allEnquiries = await Client.find(query)
             .populate("assignedTo", "name")
             .populate("assignedBy", "name")
             .populate("followUps.noteAddByUser", "name")
@@ -147,42 +135,17 @@ const getAllEnquery = async (req, res) => {
                     path: "respondedBy",
                     select: "name"
                 }
-            }).populate("createdBy", "name")
+            })
+            .populate("createdBy", "name")
             .sort({ createdAt: -1 });
 
-
-        // now we have to filter out the enquery data from here itself 
-
-        console.log("all enquery data ", allEnquery);
-
-        let filteredEnquery;
-
-        if (isuserExists.role === user_role.admin) {
-
-            filteredEnquery = allEnquery;
-
-        } else {
-
-            filteredEnquery = allEnquery.filter((data) =>
-                data.assignedTo.some((ele) => String(ele._id) === String(isuserExists._id)) ||
-                String(data.createdBy) === String(isuserExists._id)
-            );
-
-            console.log("filtered enquery : ", filteredEnquery);
-
-        }
-
-
-        return responseHandler(res, 200, true, "Enquery fetched successfully", filteredEnquery);
-
+        return responseHandler(res, 200, true, "Enquiries fetched successfully", allEnquiries);
 
     } catch (error) {
-
         console.log("error is ", error);
-
         return responseHandler(res, 500, false, "Something went wrong", null, error);
     }
-}
+};
 
 
 
@@ -1237,7 +1200,7 @@ const deleteSpecificEnquery = async (req, res) => {
         // ──────── 🔔 Send Notification ────────
         try {
             const title = "Enquiry Deleted";
-            const message = `You’ve deleted the enquiry from ${enquery.companyName} (“${enquery.requirement}”).`;
+            const message = `You've deleted the enquiry from ${enquery.companyName} ("${enquery.requirement}").`;
 
             await Notification({
                 title,
